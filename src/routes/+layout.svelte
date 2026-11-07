@@ -5,46 +5,37 @@
   let { children } = $props();
 
   const navItems = [
-    { href: "/", label: "Dashboard", icon: "⊞" },
-    { href: "/tahun-anggaran", label: "Tahun Anggaran", icon: "📅" },
-    { href: "/dokumen", label: "Dokumen", icon: "📄" },
-    { href: "/ssh", label: "Database SSH", icon: "💰" },
+    { href: "/", label: "Dashboard" },
+    { href: "/tahun-anggaran", label: "Tahun Anggaran" },
+    { href: "/dokumen", label: "Dokumen" },
+    { href: "/ssh", label: "Database SSH" },
   ];
 </script>
 
-<div class="flex h-screen bg-gray-50 text-gray-900">
-  <!-- Sidebar -->
-  <aside class="w-56 bg-white border-r border-gray-200 flex flex-col">
-    <!-- Logo -->
-    <div class="px-4 py-5 border-b border-gray-200">
-      <h1 class="text-lg font-bold tracking-tight">Aerarium</h1>
-      <p class="text-xs text-gray-500 mt-0.5">Budget Workspace</p>
+<div style="display:flex; height:100vh; overflow:hidden;">
+  <aside class="sidebar" style="width:220px; display:flex; flex-direction:column; flex-shrink:0;">
+    <div style="padding:20px 16px 16px; border-bottom:1px solid var(--border);">
+      <div style="font-size:16px; font-weight:700; color:var(--text); letter-spacing:-0.02em;">Aerarium</div>
+      <div style="font-size:11px; color:var(--text-3); margin-top:2px; font-weight:500;">Budget Workspace</div>
     </div>
 
-    <!-- Nav -->
-    <nav class="flex-1 px-2 py-3 space-y-0.5">
+    <nav style="flex:1; padding:12px 8px;">
       {#each navItems as item}
         <a
           href={item.href}
-          class="flex items-center gap-2.5 px-3 py-2 rounded text-sm
-            {$page.url.pathname === item.href
-              ? 'bg-gray-900 text-white'
-              : 'text-gray-600 hover:bg-gray-100'}"
+          class="nav-item {$page.url.pathname === item.href ? 'active' : ''}"
         >
-          <span>{item.icon}</span>
-          <span>{item.label}</span>
+          {item.label}
         </a>
       {/each}
     </nav>
 
-    <!-- Footer -->
-    <div class="px-4 py-3 border-t border-gray-200">
-      <p class="text-xs text-gray-400">v0.1.0-dev</p>
+    <div style="padding:12px 16px; border-top:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--text-3); font-weight:500;">v0.1.0-dev · AGPL-3.0</div>
     </div>
   </aside>
 
-  <!-- Konten -->
-  <main class="flex-1 overflow-auto">
+  <main style="flex:1; overflow:auto; padding:32px;">
     {@render children()}
   </main>
 </div>

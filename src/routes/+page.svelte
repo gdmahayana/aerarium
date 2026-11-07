@@ -27,7 +27,6 @@
     try {
       const list = await invoke<TahunAnggaran[]>("get_tahun_anggaran");
       tahunAktif = list.find(t => t.aktif) || null;
-
       if (tahunAktif) {
         dokumenList = await invoke<Dokumen[]>("get_dokumen", {
           tahunAnggaranId: tahunAktif.id
@@ -40,75 +39,70 @@
     }
   });
 
-  const statusColor: Record<string, string> = {
-    draft: "bg-gray-100 text-gray-600",
-    konsep: "bg-blue-100 text-blue-700",
-    ditetapkan: "bg-green-100 text-green-700",
-    dikunci: "bg-yellow-100 text-yellow-700",
-    diarsipkan: "bg-red-100 text-red-700",
+  const badgeClass: Record<string, string> = {
+    draft: "badge-draft",
+    konsep: "badge-konsep",
+    ditetapkan: "badge-ditetapkan",
+    dikunci: "badge-dikunci",
+    diarsipkan: "badge-diarsipkan",
   };
 </script>
 
-<div class="p-6">
-  <!-- Header -->
-  <div class="mb-6">
-    <h2 class="text-xl font-bold">Dashboard</h2>
-    <p class="text-sm text-gray-500 mt-1">
-      Plan with Confidence. Change with Control.
-    </p>
+<div class="page-header">
+  <h2>Dashboard</h2>
+  <p>Plan with Confidence. Change with Control.</p>
+</div>
+
+{#if loading}
+  <p style="color:var(--text-3); font-size:13px;">Memuat data...</p>
+{:else if !tahunAktif}
+  <div class="card" style="padding:48px; text-align:center; max-width:400px; margin:60px auto;">
+    <p style="font-size:13px; color:var(--text-2); margin-bottom:4px;">Belum ada tahun anggaran aktif.</p>
+    <p style="font-size:12px; color:var(--text-3); margin-bottom:20px;">Mulai dengan menambahkan tahun anggaran</p>
+    <a href="/tahun-anggaran" class="btn btn-primary">Tambah Tahun Anggaran</a>
+  </div>
+{:else}
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:28px;">
+    <div class="card" style="padding:20px;">
+      <div class="label" style="margin-bottom:8px;">Tahun Anggaran</div>
+      <div style="font-size:36px; font-weight:700; color:var(--text); letter-spacing:-0.03em;">{tahunAktif.tahun}</div>
+      <span class="badge badge-aktif" style="margin-top:8px;">Aktif</span>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div class="label" style="margin-bottom:8px;">Total Dokumen</div>
+      <div style="font-size:36px; font-weight:700; color:var(--text); letter-spacing:-0.03em;">{dokumenList.length}</div>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div class="label" style="margin-bottom:8px;">Dokumen Aktif</div>
+      <div style="font-size:36px; font-weight:700; color:var(--text); letter-spacing:-0.03em;">
+        {dokumenList.filter(d => d.status === "konsep" || d.status === "draft").length}
+      </div>
+    </div>
   </div>
 
-  {#if loading}
-    <p class="text-sm text-gray-400">Memuat data...</p>
-  {:else if !tahunAktif}
-    <!-- Belum ada tahun anggaran -->
-    <div class="border border-dashed border-gray-300 rounded-lg p-8 text-center">
-      <p class="text-gray-500 text-sm">Belum ada tahun anggaran aktif.</p>
-      <a
-        href="/tahun-anggaran"
-        class="inline-block mt-3 px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700"
-      >
-        Tambah Tahun Anggaran
-      </a>
-    </div>
-  {:else}
-    <!-- Info tahun aktif -->
-    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-      <p class="text-xs text-gray-500 uppercase tracking-wide">Tahun Anggaran Aktif</p>
-      <p class="text-3xl font-bold mt-1">{tahunAktif.tahun}</p>
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border);">
+      <span class="label">Dokumen</span>
+      <a href="/dokumen/buat" class="btn btn-primary" style="font-size:12px; padding:5px 12px;">+ Buat Dokumen</a>
     </div>
 
-    <!-- Daftar dokumen -->
-    <div>
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-gray-700">Dokumen</h3>
-        <a
-          href="/dokumen/buat"
-          class="text-xs px-3 py-1.5 bg-gray-900 text-white rounded hover:bg-gray-700"
-        >
-          + Buat Dokumen
-        </a>
+    {#if dokumenList.length === 0}
+      <div style="padding:40px; text-align:center;">
+        <p style="font-size:13px; color:var(--text-3);">Belum ada dokumen untuk tahun ini.</p>
       </div>
-
-      {#if dokumenList.length === 0}
-        <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center">
-          <p class="text-sm text-gray-400">Belum ada dokumen untuk tahun ini.</p>
+    {:else}
+      {#each dokumenList as dok}
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--border);">
+          <div>
+            <span style="font-size:13px; font-weight:600; color:var(--text);">{dok.jenis}</span>
+            <span style="font-size:13px; color:var(--text-3);"> v{dok.versi}</span>
+            {#if dok.nomor_se}
+              <div style="font-size:11px; color:var(--text-3); margin-top:2px;">SE: {dok.nomor_se}</div>
+            {/if}
+          </div>
+          <span class="badge {badgeClass[dok.status] || 'badge-draft'}">{dok.status}</span>
         </div>
-      {:else}
-        <div class="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {#each dokumenList as dok}
-            <div class="flex items-center justify-between px-4 py-3">
-              <div>
-                <p class="text-sm font-medium">{dok.jenis} v{dok.versi}</p>
-                {#if dok.nomor_se}
-                  <p class="text-xs text-gray-400 mt-0.5">SE: {dok.nomor_se}</p>
-                {/if}
-              </div>
-              <span class="text-xs px-2 py-1 rounded-full {statusColor[dok.status] || ''}">{dok.status}</span>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  {/if}
-</div>
+      {/each}
+    {/if}
+  </div>
+{/if}
