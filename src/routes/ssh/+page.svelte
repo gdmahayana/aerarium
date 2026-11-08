@@ -2,7 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
 
-  interface Ssh {
+  interface Shs {
     id: number;
     tahun_anggaran_id: number;
     kode: string;
@@ -19,7 +19,8 @@
   }
 
   let tahunAktif = $state<TahunAnggaran | null>(null);
-  let sshList = $state<Ssh[]>([]);
+  let shsList = $state<Shs[]>([]);
+  let filterJenis = $state("");
   let loading = $state(true);
   let error = $state("");
   let cari = $state("");
@@ -36,8 +37,8 @@
     }
   });
 
-  let sshTampil = $derived(
-    sshList.filter(s =>
+  let shsTampil = $derived(
+    shsList.filter(s =>
       s.uraian.toLowerCase().includes(cari.toLowerCase()) ||
       s.kode.toLowerCase().includes(cari.toLowerCase())
     )
@@ -61,11 +62,13 @@
         filters: [{ name: "Excel", extensions: ["xlsx", "xls"] }],
       });
       if (!filePath) return;
-      const count = await invoke<number>("import_ssh", {
+      const count = await invoke<number>("import_shs", {
         filePath: filePath as string,
         tahunAnggaranId: tahunAktif.id,
+        jenis: filterJenis || "SSH",
       });
-      alert(`Berhasil import ${count} item SSH`);
+      shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
+      alert(`Berhasil import ${count} item SHS`);
     } catch (e) {
       error = String(e);
     } finally {
@@ -75,7 +78,7 @@
 </script>
 
 <div class="page-header">
-  <h2>Database SSH</h2>
+  <h2>Database SHS</h2>
   <p>Standar Satuan Harga — referensi harga untuk penyusunan rincian belanja</p>
 </div>
 
@@ -107,15 +110,15 @@
     </button>
   </div>
 
-  {#if sshList.length === 0}
+  {#if shsList.length === 0}
     <div class="card" style="padding:48px; text-align:center;">
-      <p style="font-size:13px; color:var(--text-2); margin-bottom:4px;">Belum ada data SSH.</p>
-      <p style="font-size:12px; color:var(--text-3); margin-bottom:20px;">Import file Excel SSH/SHBJ dari SIPD</p>
+      <p style="font-size:13px; color:var(--text-2); margin-bottom:4px;">Belum ada data SHS.</p>
+      <p style="font-size:12px; color:var(--text-3); margin-bottom:20px;">Import file Excel SHS dari SIPD</p>
       <button onclick={importExcel} class="btn btn-secondary">Import Excel</button>
     </div>
   {:else}
     <div style="font-size:12px; color:var(--text-3); margin-bottom:12px;">
-      Menampilkan {sshTampil.length} dari {sshList.length} item
+      Menampilkan {shsTampil.length} dari {shsList.length} item
     </div>
     <div class="card" style="overflow:hidden;">
       <table style="width:100%; border-collapse:collapse;">
@@ -128,7 +131,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each sshTampil as item, i}
+          {#each shsTampil as item, i}
             <tr style="border-bottom:1px solid var(--border); {i % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : ''} transition:background 0.1s;"
               onmouseenter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
               onmouseleave={(e) => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent'}

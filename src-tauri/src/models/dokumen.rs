@@ -89,6 +89,7 @@ pub struct BuatDokumenInput {
     pub jenis: JenisDokumen,
     pub nomor_se: Option<String>,
     pub tanggal_se: Option<String>,
+    pub asal_id: Option<i64>,
     pub asal_keterangan: Option<String>,
     pub catatan: Option<String>,
 }

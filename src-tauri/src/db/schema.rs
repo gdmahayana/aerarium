@@ -178,8 +178,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
 
         -- Catat versi schema pertama
         INSERT OR IGNORE INTO migrasi (versi, deskripsi)
-        VALUES (2, 'Rename ssh to shs, tambah jenis SHS, tambah asal_keterangan dokumen'
-        ON CONFLICT DO NOTHING;
+        VALUES (2, 'Rename ssh to shs, tambah jenis SHS, tambah asal_keterangan dokumen');
         INSERT OR IGNORE INTO migrasi (versi, deskripsi)
         VALUES (1, 'Initial schema — tahun_anggaran, dokumen, kegiatan, sub_kegiatan, rincian, jejak_rekam, rencana_sementara, ssh, rekening');
     ")?;

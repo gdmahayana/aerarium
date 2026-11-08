@@ -39,6 +39,40 @@ pub fn get_all(conn: &Connection, tahun_anggaran_id: i64) -> Result<Vec<Dokumen>
 }
 
 pub fn buat(conn: &Connection, input: BuatDokumenInput) -> Result<i64, String> {
+    match input.jenis {
+        JenisDokumen::DpaSkpd => {
+            let asal_id = input.asal_id.ok_or(
+                "DPA-SKPD harus memiliki asal dokumen RKA-SKPD di Aerarium".to_string()
+            )?;
+            let asal = get_by_id(conn, asal_id)?;
+            if asal.jenis != JenisDokumen::RkaSkpd {
+                return Err("Asal DPA-SKPD harus berupa RKA-SKPD".to_string());
+            }
+            if asal.tahun_anggaran_id != input.tahun_anggaran_id {
+                return Err("Asal dokumen harus dari tahun anggaran yang sama".to_string());
+            }
+        }
+        JenisDokumen::DppaSkpd => {
+            match (input.asal_id, input.asal_keterangan.as_deref()) {
+                (Some(asal_id), _) => {
+                    let asal = get_by_id(conn, asal_id)?;
+                    if asal.jenis != JenisDokumen::RkaSkpdPerubahan {
+                        return Err("Asal DPPA-SKPD harus berupa RKA-SKPD Perubahan".to_string());
+                    }
+                    if asal.tahun_anggaran_id != input.tahun_anggaran_id {
+                        return Err("Asal dokumen harus dari tahun anggaran yang sama".to_string());
+                    }
+                }
+                (None, Some(ket)) if !ket.trim().is_empty() => {}
+                _ => {
+                    return Err("DPPA-SKPD harus memiliki asal: pilih RKA-SKPD Perubahan di Aerarium atau isi keterangan SIPD".to_string());
+                }
+            }
+        }
+        JenisDokumen::RkaSkpdPerubahan => {}
+        JenisDokumen::RkaSkpd => {}
+    }
+
     let versi_berikutnya: i64 = conn
         .query_row(
             "SELECT COALESCE(MAX(versi), 0) + 1 FROM dokumen
@@ -56,17 +90,18 @@ rusqlite::params![input.tahun_anggaran_id, input.jenis.as_str()],
 .map_err(|e| e.to_string())?;
 
 conn.execute(
-"INSERT INTO dokumen (tahun_anggaran_id, jenis, versi, nomor_se, tanggal_se, asal_keterangan, catatan)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-rusqlite::params![
-input.tahun_anggaran_id,
-input.jenis.as_str(),
-versi_berikutnya,
-input.nomor_se,
-input.tanggal_se,
-input.asal_keterangan,
-input.catatan,
-],
+"INSERT INTO dokumen (tahun_anggaran_id, jenis, versi, nomor_se, tanggal_se, asal_id, asal_keterangan, catatan)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        rusqlite::params![
+            input.tahun_anggaran_id,
+            input.jenis.as_str(),
+            versi_berikutnya,
+            input.nomor_se,
+            input.tanggal_se,
+            input.asal_id,
+            input.asal_keterangan,
+            input.catatan,
+        ],
 )
 .map_err(|e| format!("Gagal buat dokumen: {}", e))?;
 

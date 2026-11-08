@@ -8,7 +8,7 @@
     { href: "/", label: "Dashboard" },
     { href: "/tahun-anggaran", label: "Tahun Anggaran" },
     { href: "/dokumen", label: "Dokumen" },
-    { href: "/ssh", label: "Database SSH" },
+    { href: "/ssh", label: "Database SHS" },
   ];
 </script>
 

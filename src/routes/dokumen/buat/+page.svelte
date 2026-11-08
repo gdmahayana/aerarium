@@ -18,6 +18,21 @@
   let nomor_se = $state("");
   let tanggal_se = $state("");
   let catatan = $state("");
+  let asal_id = $state<number | null>(null);
+  let asal_keterangan = $state("");
+  let asal_mode = $state<"aerarium" | "sipd">("aerarium");
+
+  interface DokumenAsal {
+    id: number;
+    jenis: string;
+    versi: number;
+    nomor_se: string | null;
+    status: string;
+  }
+  let dokumenAsalList = $state<DokumenAsal[]>([]);
+
+  const butuhAsal = $derived(jenis === "DPA-SKPD" || jenis === "DPPA-SKPD");
+  const jenisDibutuhkan = $derived(jenis === "DPA-SKPD" ? "RKA-SKPD" : "RKA-SKPD Perubahan");
 
   const jenisList = [
     { value: "RKA-SKPD", label: "RKA-SKPD" },
@@ -30,6 +45,14 @@
     try {
       const list = await invoke<TahunAnggaran[]>("get_tahun_anggaran");
       tahunAktif = list.find(t => t.aktif) || null;
+      if (tahunAktif) {
+        const semua = await invoke<DokumenAsal[]>("get_dokumen", {
+          tahunAnggaranId: tahunAktif.id
+        });
+        dokumenAsalList = semua.filter(d =>
+          d.status !== "diarsipkan"
+        );
+      }
     } catch (e) {
       error = String(e);
     } finally {
@@ -47,6 +70,8 @@
           jenis,
           nomor_se: nomor_se || null,
           tanggal_se: tanggal_se || null,
+          asal_id: butuhAsal && asal_mode === "aerarium" ? asal_id : null,
+          asal_keterangan: butuhAsal && asal_mode === "sipd" ? asal_keterangan || null : null,
           catatan: catatan || null,
         }
       });
@@ -97,6 +122,46 @@
           {/each}
         </div>
       </div>
+
+      <!-- Asal Dokumen (DPA-SKPD dan DPPA-SKPD) -->
+      {#if butuhAsal}
+        <div>
+          <div class="label" style="margin-bottom:8px;">Asal Dokumen</div>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <button
+              onclick={() => asal_mode = "aerarium"}
+              class="btn {asal_mode === 'aerarium' ? 'btn-primary' : 'btn-ghost'}"
+              style="font-size:12px;"
+            >
+              Di Aerarium
+            </button>
+            <button
+              onclick={() => asal_mode = "sipd"}
+              class="btn {asal_mode === 'sipd' ? 'btn-primary' : 'btn-ghost'}"
+              style="font-size:12px;"
+            >
+              Di SIPD
+            </button>
+          </div>
+          {#if asal_mode === "aerarium"}
+            <select bind:value={asal_id} class="input">
+              <option value={null}>-- Pilih {jenisDibutuhkan} --</option>
+              {#each dokumenAsalList.filter(d => d.jenis === jenisDibutuhkan) as dok}
+                <option value={dok.id}>
+                  {dok.jenis} v{dok.versi}{dok.nomor_se ? ' — ' + dok.nomor_se : ''} ({dok.status})
+                </option>
+              {/each}
+            </select>
+          {:else}
+            <input
+              type="text"
+              placeholder="Contoh: DPA-SKPD ditetapkan via SIPD nomor ..."
+              bind:value={asal_keterangan}
+              class="input"
+            />
+          {/if}
+        </div>
+      {/if}
 
       <!-- Nomor SE -->
       <div>

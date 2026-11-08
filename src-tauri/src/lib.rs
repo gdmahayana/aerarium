@@ -2,7 +2,7 @@ mod db;
 mod commands;
 mod models;
 
-use commands::import_ssh::import_shs_from_excel;
+use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd};
 use commands::tahun_anggaran as ta;
 use commands::dokumen as dok;
 use models::tahun_anggaran::TambahTahunAnggaranInput;
@@ -17,6 +17,12 @@ fn greet(name: &str) -> String {
 fn import_shs(file_path: String, tahun_anggaran_id: i64, jenis: String) -> Result<usize, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     import_shs_from_excel(&conn, &file_path, tahun_anggaran_id, &jenis)
+}
+
+#[tauri::command]
+fn get_shs(tahun_anggaran_id: i64) -> Result<Vec<commands::import_ssh::ShsItem>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    get_shs_cmd(&conn, tahun_anggaran_id)
 }
 
 // Tahun Anggaran
@@ -73,6 +79,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             import_shs,
+            get_shs,
             get_tahun_anggaran,
             tambah_tahun_anggaran,
             set_tahun_anggaran_aktif,

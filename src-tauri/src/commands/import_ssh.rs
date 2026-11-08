@@ -57,3 +57,26 @@ pub fn import_shs_from_excel(
 
     Ok(count)
 }
+
+
+pub fn get_shs(conn: &Connection, tahun_anggaran_id: i64) -> Result<Vec<ShsItem>, String> {
+    let mut stmt = conn
+        .prepare("SELECT jenis, kode, uraian, satuan, harga FROM shs WHERE tahun_anggaran_id = ?1 ORDER BY jenis, kode")
+        .map_err(|e| e.to_string())?;
+
+    let result = stmt
+        .query_map(rusqlite::params![tahun_anggaran_id], |row| {
+            Ok(ShsItem {
+                jenis: row.get(0)?,
+                kode: row.get(1)?,
+                uraian: row.get(2)?,
+                satuan: row.get(3)?,
+                harga: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(result)
+}
