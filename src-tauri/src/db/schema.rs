@@ -45,6 +45,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
                 'diarsipkan'
             )),
             asal_id INTEGER,
+            asal_keterangan TEXT,
             catatan TEXT,
             ditetapkan_at TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -104,7 +105,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             dikunci INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (sub_kegiatan_id) REFERENCES sub_kegiatan(id),
-            FOREIGN KEY (ssh_id) REFERENCES ssh(id),
+            FOREIGN KEY (ssh_id) REFERENCES shs(id),
             FOREIGN KEY (rekening_id) REFERENCES rekening(id)
         );
 
@@ -153,10 +154,12 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (dokumen_id) REFERENCES dokumen(id)
         );
 
-        -- SSH/SHBJ
-        CREATE TABLE IF NOT EXISTS ssh (
+        -- SHS (Standar Harga Satuan)
+        -- jenis: SSH / SBU / HSPK / ASB
+        CREATE TABLE IF NOT EXISTS shs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tahun_anggaran_id INTEGER NOT NULL,
+            jenis TEXT NOT NULL DEFAULT 'SSH' CHECK(jenis IN ('SSH','SBU','HSPK','ASB')),
             kode TEXT NOT NULL,
             uraian TEXT NOT NULL,
             satuan TEXT NOT NULL,
@@ -174,6 +177,9 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
         );
 
         -- Catat versi schema pertama
+        INSERT OR IGNORE INTO migrasi (versi, deskripsi)
+        VALUES (2, 'Rename ssh to shs, tambah jenis SHS, tambah asal_keterangan dokumen'
+        ON CONFLICT DO NOTHING;
         INSERT OR IGNORE INTO migrasi (versi, deskripsi)
         VALUES (1, 'Initial schema — tahun_anggaran, dokumen, kegiatan, sub_kegiatan, rincian, jejak_rekam, rencana_sementara, ssh, rekening');
     ")?;

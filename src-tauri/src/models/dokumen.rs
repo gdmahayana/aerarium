@@ -10,6 +10,7 @@ pub struct Dokumen {
     pub tanggal_se: Option<String>,
     pub status: StatusDokumen,
     pub asal_id: Option<i64>,
+    pub asal_keterangan: Option<String>,
     pub catatan: Option<String>,
     pub ditetapkan_at: Option<String>,
     pub created_at: String,
@@ -88,5 +89,6 @@ pub struct BuatDokumenInput {
     pub jenis: JenisDokumen,
     pub nomor_se: Option<String>,
     pub tanggal_se: Option<String>,
+    pub asal_keterangan: Option<String>,
     pub catatan: Option<String>,
 }
