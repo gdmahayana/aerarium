@@ -56,7 +56,7 @@
     try {
       importing = true;
       // Tauri dialog untuk pilih file
-      const { open } = await import("@tauri-apps/plugin-dialog/dist-js/index.js");
+      const { open } = await import("@tauri-apps/plugin-dialog");
       const filePath = await open({
         filters: [{ name: "Excel", extensions: ["xlsx", "xls"] }],
       });
