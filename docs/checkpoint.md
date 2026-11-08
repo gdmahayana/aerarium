@@ -1,37 +1,33 @@
 # Checkpoint Sesi
 
 ## Status Branch Aktif
-Branch: feat/perbaikan-dokumen-shs
-Belum di-merge ke dev — perlu diselesaikan di sesi berikutnya.
+Branch: dev
+Branch feat/perbaikan-dokumen-shs sudah di-merge ke dev.
 
-## Yang Sudah Selesai di Branch Ini
+## Yang Sudah Selesai
 - Rename tabel ssh → shs, tambah kolom jenis (SSH/SBU/HSPK/ASB)
-- Tambah field asal_keterangan di tabel dokumen dan model
-- Update import command: import_shs_from_excel
-- Build berhasil — hanya warnings
+- Tambah field asal_keterangan dan asal_id di tabel dokumen dan model
+- Validasi logika asal dokumen (DPA dari RKA, DPPA dari RKA Perubahan)
+- Update UI form buat dokumen dengan pilihan asal Aerarium/SIPD
+- Update UI halaman SSH → SHS dengan filter per jenis
+- Tambah command get_shs di backend
+- Fix syntax error SQL di schema migrasi
+- Merge feat/perbaikan-dokumen-shs → dev
 
-## Yang Perlu Diselesaikan di Sesi Berikutnya
+## Fitur Berikutnya (Prioritas)
 
-### 1. Logika dokumen (PRIORITAS)
-- DPA-SKPD harus lahir dari RKA-SKPD (via asal_id)
-- DPPA-SKPD harus lahir dari RKA-SKPD Perubahan
-- Dokumen perubahan bisa dibuat mandiri (asal di SIPD) via asal_keterangan
-- Update UI form buat dokumen — pilihan asal di Aerarium atau di SIPD
+### 1. Penyusunan Rincian Belanja
+- Struktur: Kegiatan → Sub Kegiatan → Rincian
+- Rincian merujuk ke SHS (ssh_id) dan Rekening (rekening_id)
+- Field rincian: uraian, volume, satuan, harga, realisasi, dikunci
 
-### 2. Update UI halaman SSH → SHS
-- Rename label SSH → SHS
-- Tambah filter per jenis (SSH/SBU/HSPK/ASB)
-- Update command invoke: import_ssh → import_shs dengan parameter jenis
+### 2. Jejak Rekam Otomatis
+- Catat setiap perubahan rincian ke tabel jejak_rekam
+- Append-only — tidak boleh dihapus
 
-### 3. Merge ke dev setelah selesai
-
-### 4. Fitur berikutnya setelah merge
-- Penyusunan rincian belanja (kegiatan, sub kegiatan, rincian)
-- Jejak rekam otomatis
-- Export Excel
+### 3. Export Excel
 
 ## Cara Lanjut di Sesi Baru
 1. Buka Project AERARIUM di Claude
 2. Paste isi file docs/checkpoint.md ini
-3. Paste isi docs/architecture.md dan docs/database.md jika perlu konteks lebih
-4. Lanjut dari langkah yang belum selesai
+3. Lanjut dari fitur berikutnya
