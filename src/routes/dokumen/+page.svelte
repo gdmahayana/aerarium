@@ -108,6 +108,7 @@
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                   <span class="badge {badgeClass[dok.status] || 'badge-draft'}">{dok.status}</span>
+                  <a href="/dokumen/{dok.id}" class="btn btn-ghost" style="font-size:12px;">Buka →</a>
                 </div>
               </div>
             {/each}

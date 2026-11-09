@@ -79,6 +79,28 @@ fn tetapkan_dokumen(id: i64, label: String) -> Result<(), String> {
     dok::tetapkan(&conn, id, &label)
 }
 
+// Rekening
+#[tauri::command]
+fn cari_atau_buat_rekening(kode: String, uraian: String) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    let existing: Result<i64, _> = conn.query_row(
+        "SELECT id FROM rekening WHERE kode = ?1",
+        rusqlite::params![kode],
+        |row| row.get(0),
+    );
+    match existing {
+        Ok(id) => Ok(id),
+        Err(_) => {
+            let level = kode.matches(".").count() as i32;
+            conn.execute(
+                "INSERT INTO rekening (kode, uraian, level) VALUES (?1, ?2, ?3)",
+                rusqlite::params![kode, uraian, level],
+            ).map_err(|e| format!("Gagal buat rekening: {}", e))?;
+            Ok(conn.last_insert_rowid())
+        }
+    }
+}
+
 // Kegiatan
 #[tauri::command]
 fn get_kegiatan(dokumen_id: i64) -> Result<Vec<models::kegiatan::Kegiatan>, String> {
@@ -206,6 +228,7 @@ pub fn run() {
             get_dokumen,
             buat_dokumen,
             tetapkan_dokumen,
+            cari_atau_buat_rekening,
             get_kegiatan,
             tambah_kegiatan,
             hapus_kegiatan,
