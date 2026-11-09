@@ -84,8 +84,14 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             kode TEXT NOT NULL,
             uraian TEXT NOT NULL,
             pagu REAL NOT NULL DEFAULT 0,
+            sumber_dana_id INTEGER,
+            lokasi TEXT,
+            waktu_pelaksanaan TEXT,
+            keluaran TEXT,
+            target_keluaran TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (kegiatan_id) REFERENCES kegiatan(id)
+            FOREIGN KEY (kegiatan_id) REFERENCES kegiatan(id),
+            FOREIGN KEY (sumber_dana_id) REFERENCES sumber_dana(id)
         );
 
         -- Sumber Dana

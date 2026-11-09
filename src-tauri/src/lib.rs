@@ -4,6 +4,8 @@ mod models;
 
 use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd};
 use commands::rincian as rin;
+use commands::kegiatan as keg;
+use models::kegiatan::{TambahKegiatanInput, TambahSubKegiatanInput};
 use models::rincian::{
     TambahSumberDanaInput,
     TambahRincianRekeningInput,
@@ -75,6 +77,44 @@ fn buat_dokumen(input: BuatDokumenInput) -> Result<i64, String> {
 fn tetapkan_dokumen(id: i64, label: String) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     dok::tetapkan(&conn, id, &label)
+}
+
+// Kegiatan
+#[tauri::command]
+fn get_kegiatan(dokumen_id: i64) -> Result<Vec<models::kegiatan::Kegiatan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::get_kegiatan(&conn, dokumen_id)
+}
+
+#[tauri::command]
+fn tambah_kegiatan(input: TambahKegiatanInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::tambah_kegiatan(&conn, input)
+}
+
+#[tauri::command]
+fn hapus_kegiatan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::hapus_kegiatan(&conn, id)
+}
+
+// Sub Kegiatan
+#[tauri::command]
+fn get_sub_kegiatan(kegiatan_id: i64) -> Result<Vec<models::kegiatan::SubKegiatan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::get_sub_kegiatan(&conn, kegiatan_id)
+}
+
+#[tauri::command]
+fn tambah_sub_kegiatan(input: TambahSubKegiatanInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::tambah_sub_kegiatan(&conn, input)
+}
+
+#[tauri::command]
+fn hapus_sub_kegiatan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::hapus_sub_kegiatan(&conn, id)
 }
 
 // Sumber Dana
@@ -166,6 +206,12 @@ pub fn run() {
             get_dokumen,
             buat_dokumen,
             tetapkan_dokumen,
+            get_kegiatan,
+            tambah_kegiatan,
+            hapus_kegiatan,
+            get_sub_kegiatan,
+            tambah_sub_kegiatan,
+            hapus_sub_kegiatan,
             get_sumber_dana,
             tambah_sumber_dana,
             get_rincian_rekening,
