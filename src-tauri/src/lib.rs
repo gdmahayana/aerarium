@@ -3,6 +3,14 @@ mod commands;
 mod models;
 
 use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd};
+use commands::rincian as rin;
+use models::rincian::{
+    TambahSumberDanaInput,
+    TambahRincianRekeningInput,
+    TambahRincianPengelompokanInput,
+    TambahRincianKeteranganInput,
+    TambahRincianItemInput,
+};
 use commands::tahun_anggaran as ta;
 use commands::dokumen as dok;
 use models::tahun_anggaran::TambahTahunAnggaranInput;
@@ -69,6 +77,77 @@ fn tetapkan_dokumen(id: i64, label: String) -> Result<(), String> {
     dok::tetapkan(&conn, id, &label)
 }
 
+// Sumber Dana
+#[tauri::command]
+fn get_sumber_dana(tahun_anggaran_id: i64) -> Result<Vec<models::rincian::SumberDana>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::get_sumber_dana(&conn, tahun_anggaran_id)
+}
+
+#[tauri::command]
+fn tambah_sumber_dana(input: TambahSumberDanaInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::tambah_sumber_dana(&conn, input)
+}
+
+// Rincian Rekening
+#[tauri::command]
+fn get_rincian_rekening(sub_kegiatan_id: i64) -> Result<Vec<models::rincian::RincianRekening>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::get_rincian_rekening(&conn, sub_kegiatan_id)
+}
+
+#[tauri::command]
+fn tambah_rincian_rekening(input: TambahRincianRekeningInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::tambah_rincian_rekening(&conn, input)
+}
+
+// Rincian Pengelompokan
+#[tauri::command]
+fn get_rincian_pengelompokan(rincian_rekening_id: i64) -> Result<Vec<models::rincian::RincianPengelompokan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::get_rincian_pengelompokan(&conn, rincian_rekening_id)
+}
+
+#[tauri::command]
+fn tambah_rincian_pengelompokan(input: TambahRincianPengelompokanInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::tambah_rincian_pengelompokan(&conn, input)
+}
+
+// Rincian Keterangan
+#[tauri::command]
+fn get_rincian_keterangan(rincian_pengelompokan_id: i64) -> Result<Vec<models::rincian::RincianKeterangan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::get_rincian_keterangan(&conn, rincian_pengelompokan_id)
+}
+
+#[tauri::command]
+fn tambah_rincian_keterangan(input: TambahRincianKeteranganInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::tambah_rincian_keterangan(&conn, input)
+}
+
+// Rincian Item
+#[tauri::command]
+fn get_rincian_item(rincian_keterangan_id: i64) -> Result<Vec<models::rincian::RincianItem>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::get_rincian_item(&conn, rincian_keterangan_id)
+}
+
+#[tauri::command]
+fn tambah_rincian_item(input: TambahRincianItemInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::tambah_rincian_item(&conn, input)
+}
+
+#[tauri::command]
+fn hapus_rincian_item(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::hapus_rincian_item(&conn, id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     db::init_db().expect("Gagal inisialisasi database");
@@ -87,6 +166,17 @@ pub fn run() {
             get_dokumen,
             buat_dokumen,
             tetapkan_dokumen,
+            get_sumber_dana,
+            tambah_sumber_dana,
+            get_rincian_rekening,
+            tambah_rincian_rekening,
+            get_rincian_pengelompokan,
+            tambah_rincian_pengelompokan,
+            get_rincian_keterangan,
+            tambah_rincian_keterangan,
+            get_rincian_item,
+            tambah_rincian_item,
+            hapus_rincian_item,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
