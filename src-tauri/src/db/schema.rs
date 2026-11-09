@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 
 pub fn create_tables(conn: &Connection) -> Result<()> {
-    conn.execute_batch("
+    conn.execute_batch(r#"
         PRAGMA foreign_keys = ON;
 
         -- Migrasi schema
@@ -88,25 +88,75 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (kegiatan_id) REFERENCES kegiatan(id)
         );
 
-        -- Rincian Belanja
-        -- dikunci: 1 jika bagian ini sudah terealisasi
-        -- realisasi tidak mengunci seluruh kegiatan,
-        -- hanya bagian yang sudah terealisasi
-        CREATE TABLE IF NOT EXISTS rincian (
+        -- Sumber Dana
+        -- Referensi sumber pendanaan per pengelompokan belanja
+        -- Siap untuk fitur alokasi sumber dana ke belanja
+        CREATE TABLE IF NOT EXISTS sumber_dana (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tahun_anggaran_id INTEGER NOT NULL,
+            kode TEXT NOT NULL,
+            nama TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tahun_anggaran_id) REFERENCES tahun_anggaran(id)
+        );
+
+        -- Rincian Rekening
+        -- Kode rekening yang dipakai dalam satu sub kegiatan
+        CREATE TABLE IF NOT EXISTS rincian_rekening (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sub_kegiatan_id INTEGER NOT NULL,
-            ssh_id INTEGER,
             rekening_id INTEGER NOT NULL,
+            urutan INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sub_kegiatan_id) REFERENCES sub_kegiatan(id),
+            FOREIGN KEY (rekening_id) REFERENCES rekening(id)
+        );
+
+        -- Rincian Pengelompokan [ # ]
+        -- Pengelompokan belanja atau pemaketan kerja dalam satu rekening
+        -- jenis: pengelompokan (default) / pemaketan
+        CREATE TABLE IF NOT EXISTS rincian_pengelompokan (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rincian_rekening_id INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            jenis TEXT NOT NULL DEFAULT 'pengelompokan' CHECK(jenis IN ('pengelompokan', 'pemaketan')),
+            sumber_dana_id INTEGER,
+            urutan INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (rincian_rekening_id) REFERENCES rincian_rekening(id),
+            FOREIGN KEY (sumber_dana_id) REFERENCES sumber_dana(id)
+        );
+
+        -- Rincian Keterangan [ - ]
+        -- Sub-grup dalam satu pengelompokan
+        CREATE TABLE IF NOT EXISTS rincian_keterangan (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rincian_pengelompokan_id INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            urutan INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (rincian_pengelompokan_id) REFERENCES rincian_pengelompokan(id)
+        );
+
+        -- Rincian Item
+        -- Item belanja paling detail
+        -- dikunci: 1 jika sudah terealisasi
+        CREATE TABLE IF NOT EXISTS rincian_item (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rincian_keterangan_id INTEGER NOT NULL,
+            shs_id INTEGER,
             uraian TEXT NOT NULL,
+            spesifikasi TEXT,
             volume REAL NOT NULL DEFAULT 1,
             satuan TEXT NOT NULL,
             harga REAL NOT NULL DEFAULT 0,
+            ppn REAL NOT NULL DEFAULT 0,
             realisasi REAL NOT NULL DEFAULT 0,
             dikunci INTEGER NOT NULL DEFAULT 0,
+            urutan INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (sub_kegiatan_id) REFERENCES sub_kegiatan(id),
-            FOREIGN KEY (ssh_id) REFERENCES shs(id),
-            FOREIGN KEY (rekening_id) REFERENCES rekening(id)
+            FOREIGN KEY (rincian_keterangan_id) REFERENCES rincian_keterangan(id),
+            FOREIGN KEY (shs_id) REFERENCES shs(id)
         );
 
         -- Jejak Rekam (Event Log)
@@ -178,10 +228,12 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
 
         -- Catat versi schema pertama
         INSERT OR IGNORE INTO migrasi (versi, deskripsi)
+        VALUES (3, 'Tambah sumber_dana, rincian_rekening, rincian_pengelompokan, rincian_keterangan, rincian_item');
+        INSERT OR IGNORE INTO migrasi (versi, deskripsi)
         VALUES (2, 'Rename ssh to shs, tambah jenis SHS, tambah asal_keterangan dokumen');
         INSERT OR IGNORE INTO migrasi (versi, deskripsi)
         VALUES (1, 'Initial schema — tahun_anggaran, dokumen, kegiatan, sub_kegiatan, rincian, jejak_rekam, rencana_sementara, ssh, rekening');
-    ")?;
+    "#)?;
 
     Ok(())
 }
