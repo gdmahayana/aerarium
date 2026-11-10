@@ -154,11 +154,11 @@ pub fn tambah_rincian_keterangan(conn: &Connection, input: TambahRincianKeterang
 
 pub fn get_rincian_item(conn: &Connection, rincian_keterangan_id: i64) -> Result<Vec<RincianItem>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, rincian_keterangan_id, shs_id, uraian, spesifikasi, volume, satuan, harga, ppn, realisasi, dikunci, urutan, created_at FROM rincian_item WHERE rincian_keterangan_id = ?1 ORDER BY urutan")
+        .prepare("SELECT id, rincian_keterangan_id, shs_id, uraian, spesifikasi, volume, satuan, koef2, satuan2, koef3, satuan3, koef4, satuan4, harga, ppn, realisasi, dikunci, urutan, created_at FROM rincian_item WHERE rincian_keterangan_id = ?1 ORDER BY urutan")
         .map_err(|e| e.to_string())?;
     let result = stmt
         .query_map(rusqlite::params![rincian_keterangan_id], |row| {
-            let dikunci: i32 = row.get(10)?;
+            let dikunci: i32 = row.get(16)?;
             Ok(RincianItem {
                 id: row.get(0)?,
                 rincian_keterangan_id: row.get(1)?,
@@ -167,12 +167,18 @@ pub fn get_rincian_item(conn: &Connection, rincian_keterangan_id: i64) -> Result
                 spesifikasi: row.get(4)?,
                 volume: row.get(5)?,
                 satuan: row.get(6)?,
-                harga: row.get(7)?,
-                ppn: row.get(8)?,
-                realisasi: row.get(9)?,
+                koef2: row.get(7)?,
+                satuan2: row.get(8)?,
+                koef3: row.get(9)?,
+                satuan3: row.get(10)?,
+                koef4: row.get(11)?,
+                satuan4: row.get(12)?,
+                harga: row.get(13)?,
+                ppn: row.get(14)?,
+                realisasi: row.get(15)?,
                 dikunci: dikunci != 0,
-                urutan: row.get(11)?,
-                created_at: row.get(12)?,
+                urutan: row.get(17)?,
+                created_at: row.get(18)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -185,7 +191,7 @@ pub fn tambah_rincian_item(conn: &Connection, input: TambahRincianItemInput) -> 
     let ppn = input.ppn.unwrap_or(0.0);
     let urutan = input.urutan.unwrap_or(0);
     conn.execute(
-        "INSERT INTO rincian_item (rincian_keterangan_id, shs_id, uraian, spesifikasi, volume, satuan, harga, ppn, urutan) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO rincian_item (rincian_keterangan_id, shs_id, uraian, spesifikasi, volume, satuan, koef2, satuan2, koef3, satuan3, koef4, satuan4, harga, ppn, urutan) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         rusqlite::params![
             input.rincian_keterangan_id,
             input.shs_id,
@@ -193,6 +199,12 @@ pub fn tambah_rincian_item(conn: &Connection, input: TambahRincianItemInput) -> 
             input.spesifikasi,
             input.volume,
             input.satuan,
+            input.koef2,
+            input.satuan2,
+            input.koef3,
+            input.satuan3,
+            input.koef4,
+            input.satuan4,
             input.harga,
             ppn,
             urutan,

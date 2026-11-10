@@ -25,7 +25,25 @@
     aktif: boolean;
   }
 
+  interface SumberDana {
+    id: number;
+    tahun_anggaran_id: number;
+    kode: string;
+    nama: string;
+  }
+
+  let tahunAktifId = $state(0);
+  interface SumberDana {
+    id: number;
+    tahun_anggaran_id: number;
+    kode: string;
+    nama: string;
+  }
+
   let programs = $state<MasterProgram[]>([]);
+  let sumberDanaList = $state<SumberDana[]>([]);
+  let showFormSD = $state(false);
+  let formSD = $state({ kode: "", nama: "" });
   let kegiatanMap = $state<Record<number, MasterKegiatan[]>>({});
   let subKegiatanMap = $state<Record<number, MasterSubKegiatan[]>>({});
   let expandedProgram = $state<number | null>(null);
@@ -42,6 +60,14 @@
   let showFormSubKegiatan = $state<number | null>(null);
 
   onMount(async () => {
+    try {
+      const tahunList = await invoke<any[]>("get_tahun_anggaran");
+      const tahunAktif = tahunList.find((t: any) => t.aktif);
+      if (tahunAktif) {
+        tahunAktifId = tahunAktif.id;
+        sumberDanaList = await invoke<SumberDana[]>("get_sumber_dana", { tahunAnggaranId: tahunAktif.id });
+      }
+    } catch(e) { error = String(e); }
     await loadPrograms();
   });
 
@@ -141,6 +167,16 @@
       await invoke("toggle_master_kegiatan", { id });
       await loadKegiatan(programId);
     } catch (e) { error = String(e); }
+  }
+
+  async function tambahSumberDana() {
+    if (!formSD.kode || !formSD.nama || !tahunAktifId) return;
+    try {
+      await invoke("tambah_sumber_dana", { input: { tahun_anggaran_id: tahunAktifId, kode: formSD.kode, nama: formSD.nama } });
+      sumberDanaList = await invoke<SumberDana[]>("get_sumber_dana", { tahunAnggaranId: tahunAktifId });
+      formSD = { kode: "", nama: "" };
+      showFormSD = false;
+    } catch(e) { error = String(e); }
   }
 
   async function toggleAktifSubKegiatan(id: number, kegiatanId: number) {
@@ -280,3 +316,45 @@
     {/each}
   </div>
 {/if}
+
+<div style="margin-top:32px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div>
+      <span class="label">Sumber Dana</span>
+      <span style="font-size:12px; color:var(--text-3); margin-left:8px;">per tahun anggaran aktif</span>
+    </div>
+    <button class="btn btn-primary" style="font-size:12px;" onclick={() => showFormSD = !showFormSD}>+ Tambah Sumber Dana</button>
+  </div>
+
+  {#if showFormSD}
+    <div class="card" style="padding:16px; margin-bottom:12px; display:flex; gap:10px; align-items:flex-end; max-width:560px;">
+      <div style="flex:0 0 140px;">
+        <label class="label" style="display:block; margin-bottom:6px;">Kode</label>
+        <input class="input" bind:value={formSD.kode} placeholder="APBD / DAK / ..." />
+      </div>
+      <div style="flex:1;">
+        <label class="label" style="display:block; margin-bottom:6px;">Nama</label>
+        <input class="input" bind:value={formSD.nama} placeholder="Dana Alokasi Khusus" />
+      </div>
+      <button class="btn btn-primary" onclick={tambahSumberDana}>Simpan</button>
+      <button class="btn btn-ghost" onclick={() => showFormSD = false}>Batal</button>
+    </div>
+  {/if}
+
+  {#if !tahunAktifId}
+    <p style="font-size:12px; color:var(--text-3);">Belum ada tahun anggaran aktif.</p>
+  {:else if sumberDanaList.length === 0}
+    <div class="card" style="padding:24px; text-align:center;">
+      <p style="font-size:12px; color:var(--text-3);">Belum ada sumber dana untuk tahun ini.</p>
+    </div>
+  {:else}
+    <div class="card">
+      {#each sumberDanaList as sd, i}
+        <div style="display:flex; align-items:center; gap:12px; padding:12px 20px; {i < sumberDanaList.length - 1 ? 'border-bottom:1px solid var(--border);' : ''}">
+          <span style="font-size:12px; font-weight:600; font-family:monospace; color:var(--text-3); min-width:100px;">{sd.kode}</span>
+          <span style="font-size:13px; color:var(--text); flex:1;">{sd.nama}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>
