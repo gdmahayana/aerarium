@@ -201,6 +201,12 @@ fn tambah_dokumen_sub_kegiatan(input: TambahDokumenSubKegiatanInput) -> Result<i
 }
 
 #[tauri::command]
+fn update_dokumen_sub_kegiatan(id: i64, pagu: f64, sumber_dana_id: Option<i64>, lokasi: Option<String>, waktu_pelaksanaan: Option<String>, keluaran: Option<String>, target_keluaran: Option<String>) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::update_dokumen_sub_kegiatan(&conn, id, pagu, sumber_dana_id, lokasi, waktu_pelaksanaan, keluaran, target_keluaran)
+}
+
+#[tauri::command]
 fn hapus_dokumen_sub_kegiatan(id: i64) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     keg::hapus_dokumen_sub_kegiatan(&conn, id)
@@ -311,6 +317,7 @@ pub fn run() {
             hapus_master_sub_kegiatan,
             get_dokumen_sub_kegiatan,
             tambah_dokumen_sub_kegiatan,
+            update_dokumen_sub_kegiatan,
             hapus_dokumen_sub_kegiatan,
             get_sumber_dana,
             tambah_sumber_dana,

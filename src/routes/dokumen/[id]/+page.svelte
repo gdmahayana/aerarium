@@ -48,6 +48,9 @@
   let error = $state("");
   let showForm = $state(false);
   let submitting = $state(false);
+  let editingId = $state<number | null>(null);
+  let showDetail = $state(false);
+  let cariSub = $state("");
 
   let form = $state({
     master_sub_kegiatan_id: 0,
@@ -59,13 +62,25 @@
     target_keluaran: "",
   });
 
+  let editForm = $state({
+    pagu: "",
+    sumber_dana_id: "",
+    lokasi: "",
+    waktu_pelaksanaan: "",
+    keluaran: "",
+    target_keluaran: "",
+  });
+
   const dokumenId = $derived(Number($page.params.id));
+
+  let tahunAktifId = $state(0);
 
   onMount(async () => {
     try {
       const tahunList = await invoke<any[]>("get_tahun_anggaran");
       const tahunAktif = tahunList.find((t: any) => t.aktif);
       if (!tahunAktif) return;
+      tahunAktifId = tahunAktif.id;
 
       const list = await invoke<Dokumen[]>("get_dokumen", { tahunAnggaranId: tahunAktif.id });
       dokumen = list.find(d => d.id === dokumenId) || null;
@@ -90,15 +105,33 @@
     }).format(n);
   }
 
-  function namaSubKegiatan(masterSubKegiatanId: number) {
-    const sub = masterSubList.find(s => s.id === masterSubKegiatanId);
-    return sub ? sub.kode + " — " + sub.uraian : "("+masterSubKegiatanId+")";
+  function namaSubKegiatan(id: number) {
+    const sub = masterSubList.find(s => s.id === id);
+    return sub ? sub.kode + " — " + sub.uraian : String(id);
   }
 
-  // Sub kegiatan master yang belum ditambahkan ke dokumen ini
+  function kodeSubKegiatan(id: number) {
+    return masterSubList.find(s => s.id === id)?.kode || "";
+  }
+
   function masterSubTersedia() {
     const sudahAda = new Set(dskList.map(d => d.master_sub_kegiatan_id));
     return masterSubList.filter(s => !sudahAda.has(s.id));
+  }
+
+  let subTersediaFiltered = $derived(
+    masterSubTersedia().filter(s =>
+      cariSub === "" ||
+      s.kode.toLowerCase().includes(cariSub.toLowerCase()) ||
+      s.uraian.toLowerCase().includes(cariSub.toLowerCase())
+    )
+  );
+
+  function bukaForm() {
+    showForm = true;
+    showDetail = false;
+    cariSub = "";
+    form = { master_sub_kegiatan_id: 0, pagu: "", sumber_dana_id: "", lokasi: "", waktu_pelaksanaan: "", keluaran: "", target_keluaran: "" };
   }
 
   async function simpan() {
@@ -118,8 +151,40 @@
         }
       });
       dskList = await invoke<DokumenSubKegiatan[]>("get_dokumen_sub_kegiatan", { dokumenId });
-      form = { master_sub_kegiatan_id: 0, pagu: "", sumber_dana_id: "", lokasi: "", waktu_pelaksanaan: "", keluaran: "", target_keluaran: "" };
       showForm = false;
+    } catch (e) {
+      error = String(e);
+    } finally {
+      submitting = false;
+    }
+  }
+
+  function bukaEdit(dsk: DokumenSubKegiatan) {
+    editingId = dsk.id;
+    editForm = {
+      pagu: dsk.pagu ? String(dsk.pagu) : "",
+      sumber_dana_id: dsk.sumber_dana_id ? String(dsk.sumber_dana_id) : "",
+      lokasi: dsk.lokasi || "",
+      waktu_pelaksanaan: dsk.waktu_pelaksanaan || "",
+      keluaran: dsk.keluaran || "",
+      target_keluaran: dsk.target_keluaran || "",
+    };
+  }
+
+  async function simpanEdit(dsk: DokumenSubKegiatan) {
+    submitting = true;
+    try {
+      await invoke("update_dokumen_sub_kegiatan", {
+        id: dsk.id,
+        pagu: editForm.pagu ? parseFloat(editForm.pagu) : 0,
+        sumberDanaId: editForm.sumber_dana_id ? Number(editForm.sumber_dana_id) : null,
+        lokasi: editForm.lokasi || null,
+        waktuPelaksanaan: editForm.waktu_pelaksanaan || null,
+        keluaran: editForm.keluaran || null,
+        targetKeluaran: editForm.target_keluaran || null,
+      });
+      dskList = await invoke<DokumenSubKegiatan[]>("get_dokumen_sub_kegiatan", { dokumenId });
+      editingId = null;
     } catch (e) {
       error = String(e);
     } finally {
@@ -132,10 +197,13 @@
     try {
       await invoke("hapus_dokumen_sub_kegiatan", { id });
       dskList = dskList.filter(d => d.id !== id);
+      if (editingId === id) editingId = null;
     } catch (e) {
       error = String(e);
     }
   }
+
+  let totalPagu = $derived(dskList.reduce((s, d) => s + d.pagu, 0));
 </script>
 
 <div class="page-header">
@@ -166,96 +234,200 @@
     </div>
   {/if}
 
+  <!-- Header -->
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-    <span class="label">Sub Kegiatan</span>
-    {#if masterSubTersedia().length > 0}
-      <button onclick={() => showForm = !showForm} class="btn btn-primary" style="font-size:12px;">
-        + Tambah Sub Kegiatan
-      </button>
+    <div>
+      <span class="label">Sub Kegiatan</span>
+      {#if totalPagu > 0}
+        <span style="font-size:12px; color:var(--text-2); margin-left:10px;">Total pagu: {formatRupiah(totalPagu)}</span>
+      {/if}
+    </div>
+    {#if !showForm && masterSubTersedia().length > 0}
+      <button onclick={bukaForm} class="btn btn-primary" style="font-size:12px;">+ Tambah Sub Kegiatan</button>
     {:else if masterSubList.length === 0}
       <a href="/master-data" class="btn btn-ghost" style="font-size:12px;">Atur Master Data →</a>
     {/if}
   </div>
 
+  <!-- Form tambah -->
   {#if showForm}
-    <div class="card" style="padding:20px; margin-bottom:16px; max-width:600px;">
-      <div style="display:flex; flex-direction:column; gap:14px;">
-        <div>
-          <div class="label" style="margin-bottom:6px;">Sub Kegiatan</div>
-          <select class="input" bind:value={form.master_sub_kegiatan_id}>
-            <option value={0}>-- Pilih Sub Kegiatan --</option>
-            {#each masterSubTersedia() as sub}
-              <option value={sub.id}>{sub.kode} — {sub.uraian}</option>
+    <div class="card" style="padding:20px; margin-bottom:20px; border:1px solid var(--accent); max-width:640px;">
+      <!-- Search sub kegiatan -->
+      <div style="margin-bottom:14px;">
+        <div class="label" style="margin-bottom:6px;">Cari Sub Kegiatan</div>
+        <input
+          class="input" type="text"
+          placeholder="Ketik kode atau nama..."
+          bind:value={cariSub}
+          autofocus
+        />
+      </div>
+
+      <!-- List pilihan -->
+      {#if cariSub || !form.master_sub_kegiatan_id}
+        <div style="border:1px solid var(--border); border-radius:6px; max-height:200px; overflow-y:auto; margin-bottom:14px;">
+          {#if subTersediaFiltered.length === 0}
+            <div style="padding:16px; font-size:12px; color:var(--text-3); text-align:center;">Tidak ada hasil</div>
+          {:else}
+            {#each subTersediaFiltered as sub}
+              <button
+                style="width:100%; text-align:left; padding:10px 14px; background:{form.master_sub_kegiatan_id === sub.id ? "var(--accent)" : "transparent"}; border:none; border-bottom:1px solid var(--border); cursor:pointer; display:flex; gap:12px; align-items:baseline;"
+                onclick={() => { form.master_sub_kegiatan_id = sub.id; cariSub = ""; }}
+              >
+                <span style="font-size:11px; font-family:monospace; color:{form.master_sub_kegiatan_id === sub.id ? "white" : "var(--text-3)"}; min-width:140px;">{sub.kode}</span>
+                <span style="font-size:12px; color:{form.master_sub_kegiatan_id === sub.id ? "white" : "var(--text)"}">{sub.uraian}</span>
+              </button>
             {/each}
-          </select>
+          {/if}
         </div>
-        <div style="display:flex; gap:12px;">
-          <div style="flex:1;">
-            <div class="label" style="margin-bottom:6px;">Pagu</div>
-            <input type="number" placeholder="0" bind:value={form.pagu} class="input" />
+      {/if}
+
+      <!-- Terpilih -->
+      {#if form.master_sub_kegiatan_id}
+        <div style="padding:10px 14px; background:var(--surface-2); border-radius:6px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:11px; color:var(--text-3); margin-bottom:2px;">Terpilih</div>
+            <div style="font-size:12px; color:var(--text); font-weight:600;">{namaSubKegiatan(form.master_sub_kegiatan_id)}</div>
           </div>
-          <div style="flex:1;">
-            <div class="label" style="margin-bottom:6px;">Sumber Dana <span style="color:var(--text-3); font-weight:400;">(opsional)</span></div>
-            <select class="input" bind:value={form.sumber_dana_id}>
-              <option value="">-- Pilih --</option>
-              {#each sumberDanaList as sd}
-                <option value={sd.id}>{sd.kode} — {sd.nama}</option>
-              {/each}
-            </select>
+          <button class="btn btn-ghost" style="font-size:11px;" onclick={() => { form.master_sub_kegiatan_id = 0; }}>Ganti</button>
+        </div>
+      {/if}
+
+      <!-- Toggle detail -->
+      <button
+        class="btn btn-ghost" style="font-size:12px; margin-bottom:14px; padding:4px 0;"
+        onclick={() => showDetail = !showDetail}
+      >{showDetail ? "▾" : "▸"} {showDetail ? "Sembunyikan detail" : "Isi pagu & detail (opsional)"}</button>
+
+      {#if showDetail}
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:14px; padding:14px; background:var(--surface-2); border-radius:6px;">
+          <div style="display:flex; gap:12px;">
+            <div style="flex:1;">
+              <div class="label" style="margin-bottom:6px;">Pagu</div>
+              <input type="number" placeholder="0" bind:value={form.pagu} class="input" />
+            </div>
+            <div style="flex:1;">
+              <div class="label" style="margin-bottom:6px;">Sumber Dana</div>
+              <select class="input" bind:value={form.sumber_dana_id}>
+                <option value="">— pilih —</option>
+                {#each sumberDanaList as sd}
+                  <option value={sd.id}>{sd.kode} — {sd.nama}</option>
+                {/each}
+              </select>
+            </div>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:6px;">Lokasi</div>
+            <input type="text" placeholder="Kab. ..." bind:value={form.lokasi} class="input" />
+          </div>
+          <div style="display:flex; gap:12px;">
+            <div style="flex:1;">
+              <div class="label" style="margin-bottom:6px;">Waktu Pelaksanaan</div>
+              <input type="text" placeholder="Jan — Des 2025" bind:value={form.waktu_pelaksanaan} class="input" />
+            </div>
+            <div style="flex:1;">
+              <div class="label" style="margin-bottom:6px;">Keluaran</div>
+              <input type="text" placeholder="Dokumen / Laporan" bind:value={form.keluaran} class="input" />
+            </div>
+            <div style="flex:1;">
+              <div class="label" style="margin-bottom:6px;">Target Keluaran</div>
+              <input type="text" placeholder="1 Dokumen" bind:value={form.target_keluaran} class="input" />
+            </div>
           </div>
         </div>
-        <div>
-          <div class="label" style="margin-bottom:6px;">Lokasi <span style="color:var(--text-3); font-weight:400;">(opsional)</span></div>
-          <input type="text" placeholder="Kab. ..." bind:value={form.lokasi} class="input" />
-        </div>
-        <div style="display:flex; gap:12px;">
-          <div style="flex:1;">
-            <div class="label" style="margin-bottom:6px;">Waktu Pelaksanaan</div>
-            <input type="text" placeholder="Jan — Des 2025" bind:value={form.waktu_pelaksanaan} class="input" />
-          </div>
-          <div style="flex:1;">
-            <div class="label" style="margin-bottom:6px;">Keluaran</div>
-            <input type="text" placeholder="Dokumen / Laporan / ..." bind:value={form.keluaran} class="input" />
-          </div>
-          <div style="flex:1;">
-            <div class="label" style="margin-bottom:6px;">Target Keluaran</div>
-            <input type="text" placeholder="1 Dokumen" bind:value={form.target_keluaran} class="input" />
-          </div>
-        </div>
-        <div style="display:flex; gap:10px;">
-          <button onclick={simpan} disabled={submitting || !form.master_sub_kegiatan_id} class="btn btn-primary">
-            {submitting ? "Menyimpan..." : "Simpan"}
-          </button>
-          <button onclick={() => showForm = false} class="btn btn-ghost">Batal</button>
-        </div>
+      {/if}
+
+      <div style="display:flex; gap:10px;">
+        <button onclick={simpan} disabled={submitting || !form.master_sub_kegiatan_id} class="btn btn-primary">
+          {submitting ? "Menyimpan..." : "Simpan"}
+        </button>
+        <button onclick={() => showForm = false} class="btn btn-ghost">Batal</button>
       </div>
     </div>
   {/if}
 
+  <!-- List sub kegiatan -->
   {#if dskList.length === 0}
     <div class="card" style="padding:40px; text-align:center;">
       <p style="font-size:13px; color:var(--text-3); margin-bottom:12px;">Belum ada sub kegiatan.</p>
       {#if masterSubList.length === 0}
-        <p style="font-size:12px; color:var(--text-3);">Tambah sub kegiatan di <a href="/master-data" style="color:var(--accent);">Master Data</a> terlebih dahulu.</p>
+        <p style="font-size:12px; color:var(--text-3);">
+          Tambah sub kegiatan di <a href="/master-data" style="color:var(--accent);">Master Data</a> terlebih dahulu.
+        </p>
       {/if}
     </div>
   {:else}
-    <div class="card">
-      {#each dskList as dsk, i}
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; {i < dskList.length - 1 ? "border-bottom:1px solid var(--border);" : ""}">
-          <div style="flex:1; cursor:pointer;" onclick={() => goto("/dokumen/" + dokumenId + "/sub/" + dsk.id)}>
-            <div style="font-size:12px; color:var(--text-3); font-family:monospace;">{namaSubKegiatan(dsk.master_sub_kegiatan_id)}</div>
-            {#if dsk.pagu > 0}
-              <div style="font-size:12px; color:var(--text-2); margin-top:2px;">{formatRupiah(dsk.pagu)}</div>
-            {/if}
-            {#if dsk.lokasi}
-              <div style="font-size:11px; color:var(--text-3); margin-top:2px;">{dsk.lokasi}</div>
-            {/if}
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      {#each dskList as dsk}
+        <div class="card" style="overflow:hidden;">
+          <!-- Baris utama -->
+          <div style="display:flex; align-items:center; gap:12px; padding:14px 20px;">
+            <div style="flex:1; cursor:pointer;" onclick={() => goto("/dokumen/" + dokumenId + "/sub/" + dsk.id)}>
+              <div style="font-size:11px; font-family:monospace; color:var(--text-3);">{kodeSubKegiatan(dsk.master_sub_kegiatan_id)}</div>
+              <div style="font-size:13px; font-weight:600; color:var(--text); margin-top:2px;">{masterSubList.find(s => s.id === dsk.master_sub_kegiatan_id)?.uraian || ""}</div>
+              <div style="display:flex; gap:16px; margin-top:4px;">
+                {#if dsk.pagu > 0}
+                  <span style="font-size:12px; color:var(--text-2);">{formatRupiah(dsk.pagu)}</span>
+                {:else}
+                  <span style="font-size:12px; color:var(--text-3);">pagu belum diisi</span>
+                {/if}
+                {#if dsk.lokasi}
+                  <span style="font-size:11px; color:var(--text-3);">📍 {dsk.lokasi}</span>
+                {/if}
+                {#if dsk.waktu_pelaksanaan}
+                  <span style="font-size:11px; color:var(--text-3);">🗓 {dsk.waktu_pelaksanaan}</span>
+                {/if}
+              </div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button onclick={() => bukaEdit(dsk)} class="btn btn-ghost" style="font-size:12px;">Edit</button>
+              <button onclick={() => goto("/dokumen/" + dokumenId + "/sub/" + dsk.id)} class="btn btn-primary" style="font-size:12px;">Rincian →</button>
+              <button onclick={() => hapus(dsk.id)} class="btn btn-ghost" style="font-size:12px; color:var(--text-3);">Hapus</button>
+            </div>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button onclick={() => goto("/dokumen/" + dokumenId + "/sub/" + dsk.id)} class="btn btn-ghost" style="font-size:12px;">Rincian →</button>
-            <button onclick={() => hapus(dsk.id)} class="btn btn-ghost" style="font-size:12px; color:var(--text-3);">Hapus</button>
-          </div>
+
+          <!-- Panel edit inline -->
+          {#if editingId === dsk.id}
+            <div style="border-top:1px solid var(--border); padding:16px 20px; background:var(--surface-2); display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; gap:12px;">
+                <div style="flex:1;">
+                  <div class="label" style="margin-bottom:6px;">Pagu</div>
+                  <input type="number" placeholder="0" bind:value={editForm.pagu} class="input" />
+                </div>
+                <div style="flex:1;">
+                  <div class="label" style="margin-bottom:6px;">Sumber Dana</div>
+                  <select class="input" bind:value={editForm.sumber_dana_id}>
+                    <option value="">— pilih —</option>
+                    {#each sumberDanaList as sd}
+                      <option value={sd.id}>{sd.kode} — {sd.nama}</option>
+                    {/each}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div class="label" style="margin-bottom:6px;">Lokasi</div>
+                <input type="text" placeholder="Kab. ..." bind:value={editForm.lokasi} class="input" />
+              </div>
+              <div style="display:flex; gap:12px;">
+                <div style="flex:1;">
+                  <div class="label" style="margin-bottom:6px;">Waktu Pelaksanaan</div>
+                  <input type="text" bind:value={editForm.waktu_pelaksanaan} class="input" />
+                </div>
+                <div style="flex:1;">
+                  <div class="label" style="margin-bottom:6px;">Keluaran</div>
+                  <input type="text" bind:value={editForm.keluaran} class="input" />
+                </div>
+                <div style="flex:1;">
+                  <div class="label" style="margin-bottom:6px;">Target Keluaran</div>
+                  <input type="text" bind:value={editForm.target_keluaran} class="input" />
+                </div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-primary" style="font-size:12px;" disabled={submitting} onclick={() => simpanEdit(dsk)}>{submitting ? "Menyimpan..." : "Simpan"}</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick={() => editingId = null}>Batal</button>
+              </div>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>

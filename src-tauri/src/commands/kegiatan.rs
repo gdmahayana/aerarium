@@ -202,6 +202,14 @@ pub fn tambah_dokumen_sub_kegiatan(conn: &Connection, input: TambahDokumenSubKeg
     Ok(conn.last_insert_rowid())
 }
 
+pub fn update_dokumen_sub_kegiatan(conn: &Connection, id: i64, pagu: f64, sumber_dana_id: Option<i64>, lokasi: Option<String>, waktu_pelaksanaan: Option<String>, keluaran: Option<String>, target_keluaran: Option<String>) -> Result<(), String> {
+    conn.execute(
+        "UPDATE dokumen_sub_kegiatan SET pagu=?1, sumber_dana_id=?2, lokasi=?3, waktu_pelaksanaan=?4, keluaran=?5, target_keluaran=?6 WHERE id=?7",
+        params![pagu, sumber_dana_id, lokasi, waktu_pelaksanaan, keluaran, target_keluaran, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn hapus_dokumen_sub_kegiatan(conn: &Connection, id: i64) -> Result<(), String> {
     conn.execute(
         "DELETE FROM dokumen_sub_kegiatan WHERE id = ?1",
