@@ -31,6 +31,8 @@
   let loading = $state(true);
   let error = $state("");
   let importing = $state(false);
+  let halaman = $state(1);
+  const perHalaman = 100;
   let showForm = $state(false);
   let submitting = $state(false);
 
@@ -56,7 +58,15 @@
     finally { loading = false; }
   });
 
+  $effect(() => { cari; filterJenis; tabAktif; halaman = 1; });
+
   let shsTampil = $derived(
+    shsFiltered.slice((halaman - 1) * perHalaman, halaman * perHalaman)
+  );
+
+  let totalHalaman = $derived(Math.ceil(shsFiltered.length / perHalaman));
+
+  let shsFiltered = $derived(
     shsList.filter(s =>
       s.sumber === tabAktif &&
       (filterJenis === "" || s.jenis === filterJenis) &&
@@ -248,7 +258,7 @@
       {/if}
     </div>
   {:else}
-    <div style="font-size:12px; color:var(--text-3); margin-bottom:8px;">{shsTampil.length} item</div>
+    <div style="font-size:12px; color:var(--text-3); margin-bottom:8px;">Menampilkan {(halaman-1)*perHalaman+1}–{Math.min(halaman*perHalaman, shsFiltered.length)} dari {shsFiltered.length} item</div>
     <div class="card" style="overflow:hidden;">
       <table style="width:100%; border-collapse:collapse;">
         <thead>
@@ -279,5 +289,31 @@
         </tbody>
       </table>
     </div>
+
+    {#if totalHalaman > 1}
+      <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:16px;">
+        <button
+          class="btn btn-ghost" style="font-size:12px;"
+          disabled={halaman === 1}
+          onclick={() => halaman--}
+        >← Prev</button>
+
+        {#each Array.from({length: totalHalaman}, (_, i) => i + 1).filter(p => p === 1 || p === totalHalaman || Math.abs(p - halaman) <= 2) as p, i}
+          {#if i > 0 && p - (Array.from({length: totalHalaman}, (_, i) => i + 1).filter(p => p === 1 || p === totalHalaman || Math.abs(p - halaman) <= 2)[i-1]) > 1}
+            <span style="color:var(--text-3);">...</span>
+          {/if}
+          <button
+            class="btn {halaman === p ? 'btn-primary' : 'btn-ghost'}" style="font-size:12px; min-width:36px;"
+            onclick={() => halaman = p}
+          >{p}</button>
+        {/each}
+
+        <button
+          class="btn btn-ghost" style="font-size:12px;"
+          disabled={halaman === totalHalaman}
+          onclick={() => halaman++}
+        >Next →</button>
+      </div>
+    {/if}
   {/if}
 {/if}
