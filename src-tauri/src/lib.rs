@@ -2,7 +2,7 @@ mod db;
 mod commands;
 mod models;
 
-use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd};
+use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd, tambah_shs_manual as tambah_shs_cmd, hapus_shs as hapus_shs_cmd};
 use commands::rincian as rin;
 use commands::kegiatan as keg;
 use models::kegiatan::{
@@ -26,6 +26,18 @@ use models::dokumen::BuatDokumenInput;
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You have been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn tambah_shs(tahun_anggaran_id: i64, jenis: String, sumber: String, kode: String, uraian: String, spesifikasi: Option<String>, satuan: String, harga: f64) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    tambah_shs_cmd(&conn, tahun_anggaran_id, &jenis, &sumber, &kode, &uraian, spesifikasi.as_deref(), &satuan, harga)
+}
+
+#[tauri::command]
+fn hapus_shs(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    hapus_shs_cmd(&conn, id)
 }
 
 #[tauri::command]
@@ -294,6 +306,8 @@ pub fn run() {
             greet,
             import_shs,
             get_shs,
+            tambah_shs,
+            hapus_shs,
             get_tahun_anggaran,
             tambah_tahun_anggaran,
             set_tahun_anggaran_aktif,

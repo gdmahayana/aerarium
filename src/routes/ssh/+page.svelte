@@ -4,12 +4,17 @@
 
   interface Shs {
     id: number;
-    tahun_anggaran_id: number;
+    jenis: string;
+    sumber: string;
     kode: string;
+    kode_kelompok: string | null;
+    uraian_kelompok: string | null;
+    id_sipd: string | null;
     uraian: string;
+    spesifikasi: string | null;
     satuan: string;
     harga: number;
-    created_at: string;
+    kode_rekening: string | null;
   }
 
   interface TahunAnggaran {
@@ -20,43 +25,87 @@
 
   let tahunAktif = $state<TahunAnggaran | null>(null);
   let shsList = $state<Shs[]>([]);
+  let tabAktif = $state<'rencana'|'resmi'>('rencana');
+  let cari = $state("");
   let filterJenis = $state("");
   let loading = $state(true);
   let error = $state("");
-  let cari = $state("");
   let importing = $state(false);
+  let showForm = $state(false);
+  let submitting = $state(false);
+
+  let form = $state({
+    jenis: "SSH",
+    kode: "",
+    uraian: "",
+    spesifikasi: "",
+    satuan: "",
+    harga: "",
+  });
+
+  const jenisList = ["SSH", "SBU", "HSPK", "ASB"];
 
   onMount(async () => {
     try {
       const list = await invoke<TahunAnggaran[]>("get_tahun_anggaran");
       tahunAktif = list.find(t => t.aktif) || null;
-    } catch (e) {
-      error = String(e);
-    } finally {
-      loading = false;
-    }
+      if (tahunAktif) {
+        shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
+      }
+    } catch(e) { error = String(e); }
+    finally { loading = false; }
   });
 
   let shsTampil = $derived(
     shsList.filter(s =>
-      s.uraian.toLowerCase().includes(cari.toLowerCase()) ||
-      s.kode.toLowerCase().includes(cari.toLowerCase())
+      s.sumber === tabAktif &&
+      (filterJenis === "" || s.jenis === filterJenis) &&
+      (cari === "" ||
+        s.uraian.toLowerCase().includes(cari.toLowerCase()) ||
+        s.kode.toLowerCase().includes(cari.toLowerCase()))
     )
   );
 
-  function formatRupiah(n: number) {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(n);
+  let totalRencana = $derived(shsList.filter(s => s.sumber === "rencana").length);
+  let totalResmi = $derived(shsList.filter(s => s.sumber === "resmi").length);
+
+  function formatRp(n: number) {
+    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
+  }
+
+  async function tambah() {
+    if (!form.kode || !form.uraian || !form.satuan || !form.harga || !tahunAktif) return;
+    submitting = true;
+    try {
+      await invoke("tambah_shs", {
+        tahunAnggaranId: tahunAktif.id,
+        jenis: form.jenis,
+        sumber: tabAktif,
+        kode: form.kode,
+        uraian: form.uraian,
+        spesifikasi: form.spesifikasi || null,
+        satuan: form.satuan,
+        harga: parseFloat(form.harga),
+      });
+      shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
+      form = { jenis: "SSH", kode: "", uraian: "", spesifikasi: "", satuan: "", harga: "" };
+      showForm = false;
+    } catch(e) { error = String(e); }
+    finally { submitting = false; }
+  }
+
+  async function hapus(id: number, uraian: string) {
+    if (!confirm('Hapus ' + uraian + '?')) return;
+    try {
+      await invoke("hapus_shs", { id });
+      shsList = shsList.filter(s => s.id !== id);
+    } catch(e) { error = String(e); }
   }
 
   async function importExcel() {
     if (!tahunAktif) return;
+    importing = true;
     try {
-      importing = true;
-      // Tauri dialog untuk pilih file
       const { open } = await import("@tauri-apps/plugin-dialog");
       const filePath = await open({
         filters: [{ name: "Excel", extensions: ["xlsx", "xls"] }],
@@ -68,12 +117,9 @@
         jenis: filterJenis || "SSH",
       });
       shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
-      alert(`Berhasil import ${count} item SHS`);
-    } catch (e) {
-      error = String(e);
-    } finally {
-      importing = false;
-    }
+      alert("Berhasil import " + count + " item SHS Resmi");
+    } catch(e) { error = String(e); }
+    finally { importing = false; }
   }
 </script>
 
@@ -85,7 +131,7 @@
 {#if error}
   <div class="alert-error">
     {error}
-    <button onclick={() => error = ""} style="margin-left:8px; text-decoration:underline; background:none; border:none; color:inherit; cursor:pointer; font-family:inherit;">Tutup</button>
+    <button onclick={() => error = ""} style="margin-left:8px; text-decoration:underline; background:none; border:none; color:inherit; cursor:pointer;">Tutup</button>
   </div>
 {/if}
 
@@ -97,49 +143,137 @@
     <a href="/tahun-anggaran" class="btn btn-primary">Atur Tahun Anggaran</a>
   </div>
 {:else}
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px;">
-    <input
-      type="text"
-      placeholder="Cari kode atau uraian..."
-      bind:value={cari}
-      class="input"
-      style="max-width:320px;"
-    />
-    <button onclick={importExcel} disabled={importing} class="btn btn-primary">
-      {importing ? "Mengimpor..." : "Import dari Excel"}
-    </button>
+  <!-- Tab -->
+  <div style="display:flex; gap:0; margin-bottom:20px; border-bottom:1px solid var(--border);">
+    <button
+      onclick={() => { tabAktif = 'rencana'; showForm = false; }}
+      style="padding:10px 20px; font-size:13px; font-weight:600; background:none; border:none; cursor:pointer; border-bottom:2px solid {tabAktif === 'rencana' ? 'var(--accent)' : 'transparent'}; color:{tabAktif === 'rencana' ? 'var(--accent)' : 'var(--text-3)'};"
+    >SHS Rencana <span style="font-size:11px; margin-left:4px;">({totalRencana})</span></button>
+    <button
+      onclick={() => { tabAktif = 'resmi'; showForm = false; }}
+      style="padding:10px 20px; font-size:13px; font-weight:600; background:none; border:none; cursor:pointer; border-bottom:2px solid {tabAktif === 'resmi' ? 'var(--accent)' : 'transparent'}; color:{tabAktif === 'resmi' ? 'var(--accent)' : 'var(--text-3)'};"
+    >SHS Resmi <span style="font-size:11px; margin-left:4px;">({totalResmi})</span></button>
   </div>
 
-  {#if shsList.length === 0}
+  <!-- Deskripsi tab -->
+  <div style="font-size:12px; color:var(--text-3); margin-bottom:16px; padding:10px 14px; background:var(--surface-2); border-radius:6px;">
+    {#if tabAktif === 'rencana'}
+      <strong style="color:var(--text-2);">SHS Rencana</strong> — estimasi harga OPD sebelum SHS resmi terbit.
+      Input manual kebutuhan belanja, lalu export untuk dikirim ke BPKAD sebagai usulan survei harga.
+    {:else}
+      <strong style="color:var(--text-2);">SHS Resmi</strong> — harga yang telah ditetapkan BPKAD setelah survei.
+      Input manual mengikuti dokumen resmi, atau import dari file Excel SIPD.
+    {/if}
+  </div>
+
+  <!-- Toolbar -->
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+    <input type="text" placeholder="Cari kode atau uraian..." bind:value={cari} class="input" style="flex:1; min-width:200px; max-width:320px;" />
+    <select class="input" style="width:120px;" bind:value={filterJenis}>
+      <option value="">Semua Jenis</option>
+      {#each jenisList as j}
+        <option value={j}>{j}</option>
+      {/each}
+    </select>
+    <div style="flex:1;"></div>
+    <button onclick={() => { showForm = !showForm; }} class="btn btn-primary" style="font-size:12px;">
+      + Input Manual
+    </button>
+    {#if tabAktif === 'resmi'}
+      <button onclick={importExcel} disabled={importing} class="btn btn-ghost" style="font-size:12px;">
+        {importing ? "Mengimpor..." : "Import Excel"}
+      </button>
+    {/if}
+  </div>
+
+  <!-- Form input manual -->
+  {#if showForm}
+    <div class="card" style="padding:16px; margin-bottom:16px; border:1px solid var(--accent);">
+      <div style="font-size:12px; font-weight:600; color:var(--text-2); margin-bottom:12px;">
+        Tambah SHS {tabAktif === 'rencana' ? 'Rencana' : 'Resmi'} — Input Manual
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="flex:0 0 100px;">
+          <div class="label" style="margin-bottom:4px;">Jenis</div>
+          <select class="input" bind:value={form.jenis}>
+            {#each jenisList as j}
+              <option value={j}>{j}</option>
+            {/each}
+          </select>
+        </div>
+        <div style="flex:0 0 160px;">
+          <div class="label" style="margin-bottom:4px;">Kode</div>
+          <input class="input" bind:value={form.kode} placeholder="Kode SHS..." />
+        </div>
+        <div style="flex:2; min-width:200px;">
+          <div class="label" style="margin-bottom:4px;">Uraian / Nama Barang</div>
+          <input class="input" bind:value={form.uraian} placeholder="Nama barang atau jasa..." autofocus />
+        </div>
+        <div style="flex:1; min-width:160px;">
+          <div class="label" style="margin-bottom:4px;">Spesifikasi</div>
+          <input class="input" bind:value={form.spesifikasi} placeholder="Spesifikasi teknis..." />
+        </div>
+        <div style="flex:0 0 120px;">
+          <div class="label" style="margin-bottom:4px;">Satuan</div>
+          <input class="input" bind:value={form.satuan} placeholder="Unit, Kg, Lembar..." />
+        </div>
+        <div style="flex:0 0 160px;">
+          <div class="label" style="margin-bottom:4px;">Harga</div>
+          <input class="input" type="number" bind:value={form.harga} placeholder="0" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button onclick={tambah} disabled={submitting || !form.kode || !form.uraian || !form.satuan || !form.harga} class="btn btn-primary">
+            {submitting ? "Menyimpan..." : "Simpan"}
+          </button>
+          <button onclick={() => showForm = false} class="btn btn-ghost">Batal</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- List -->
+  {#if shsTampil.length === 0}
     <div class="card" style="padding:48px; text-align:center;">
-      <p style="font-size:13px; color:var(--text-2); margin-bottom:4px;">Belum ada data SHS.</p>
-      <p style="font-size:12px; color:var(--text-3); margin-bottom:20px;">Import file Excel SHS dari SIPD</p>
-      <button onclick={importExcel} class="btn btn-secondary">Import Excel</button>
+      {#if shsList.filter(s => s.sumber === tabAktif).length === 0}
+        <p style="font-size:13px; color:var(--text-3); margin-bottom:16px;">
+          Belum ada SHS {tabAktif === 'rencana' ? 'Rencana' : 'Resmi'}.
+        </p>
+        {#if tabAktif === 'rencana'}
+          <p style="font-size:12px; color:var(--text-3);">Input manual barang/jasa yang dibutuhkan OPD.</p>
+        {:else}
+          <p style="font-size:12px; color:var(--text-3);">Input manual atau import dari Excel setelah SHS resmi terbit.</p>
+        {/if}
+      {:else}
+        <p style="font-size:13px; color:var(--text-3);">Tidak ada hasil untuk pencarian ini.</p>
+      {/if}
     </div>
   {:else}
-    <div style="font-size:12px; color:var(--text-3); margin-bottom:12px;">
-      Menampilkan {shsTampil.length} dari {shsList.length} item
-    </div>
+    <div style="font-size:12px; color:var(--text-3); margin-bottom:8px;">{shsTampil.length} item</div>
     <div class="card" style="overflow:hidden;">
       <table style="width:100%; border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:1px solid var(--border);">
-            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-3);">Kode</th>
-            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-3);">Uraian</th>
-            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-3);">Satuan</th>
-            <th style="padding:10px 16px; text-align:right; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-3);">Harga</th>
+            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Jenis</th>
+            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Kode</th>
+            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Uraian</th>
+            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Spesifikasi</th>
+            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Satuan</th>
+            <th style="padding:10px 16px; text-align:right; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Harga</th>
+            <th style="padding:10px 16px;"></th>
           </tr>
         </thead>
         <tbody>
           {#each shsTampil as item, i}
-            <tr style="border-bottom:1px solid var(--border); {i % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : ''} transition:background 0.1s;"
-              onmouseenter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
-              onmouseleave={(e) => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent'}
-            >
+            <tr style="border-bottom:1px solid var(--border); {i % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : ''}">
+              <td style="padding:10px 16px;"><span class="badge">{item.jenis}</span></td>
               <td style="padding:10px 16px; font-size:12px; color:var(--text-3); font-family:monospace;">{item.kode}</td>
               <td style="padding:10px 16px; font-size:13px; color:var(--text);">{item.uraian}</td>
+              <td style="padding:10px 16px; font-size:12px; color:var(--text-3);">{item.spesifikasi || '—'}</td>
               <td style="padding:10px 16px; font-size:12px; color:var(--text-2);">{item.satuan}</td>
-              <td style="padding:10px 16px; font-size:13px; color:var(--text); text-align:right; font-variant-numeric:tabular-nums;">{formatRupiah(item.harga)}</td>
+              <td style="padding:10px 16px; font-size:13px; color:var(--text); text-align:right; font-variant-numeric:tabular-nums;">{formatRp(item.harga)}</td>
+              <td style="padding:10px 16px;">
+                <button onclick={() => hapus(item.id, item.uraian)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
+              </td>
             </tr>
           {/each}
         </tbody>

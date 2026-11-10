@@ -22,7 +22,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tahun_anggaran_id INTEGER NOT NULL,
             jenis TEXT NOT NULL CHECK(jenis IN (
-                'RKA-SKPD','DPA-SKPD','RKA-SKPD Perubahan','DPPA-SKPD'
+                'Kertas Kerja','RKA-SKPD','DPA-SKPD','RKA-SKPD Perubahan','DPPA-SKPD'
             )),
             versi INTEGER NOT NULL DEFAULT 1,
             nomor_se TEXT,
@@ -53,10 +53,16 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tahun_anggaran_id INTEGER NOT NULL,
             jenis TEXT NOT NULL DEFAULT 'SSH' CHECK(jenis IN ('SSH','SBU','HSPK','ASB')),
+            sumber TEXT NOT NULL DEFAULT 'rencana' CHECK(sumber IN ('rencana','resmi')),
             kode TEXT NOT NULL,
+            kode_kelompok TEXT,
+            uraian_kelompok TEXT,
+            id_sipd TEXT,
             uraian TEXT NOT NULL,
+            spesifikasi TEXT,
             satuan TEXT NOT NULL,
             harga REAL NOT NULL DEFAULT 0,
+            kode_rekening TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (tahun_anggaran_id) REFERENCES tahun_anggaran(id)
         );
