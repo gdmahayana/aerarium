@@ -21,7 +21,7 @@ pub struct TambahSumberDanaInput {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RincianRekening {
     pub id: i64,
-    pub sub_kegiatan_id: i64,
+    pub dokumen_sub_kegiatan_id: i64,
     pub rekening_id: i64,
     pub rekening_kode: Option<String>,
     pub rekening_uraian: Option<String>,
@@ -31,7 +31,7 @@ pub struct RincianRekening {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TambahRincianRekeningInput {
-    pub sub_kegiatan_id: i64,
+    pub dokumen_sub_kegiatan_id: i64,
     pub rekening_id: i64,
     pub urutan: Option<i32>,
 }

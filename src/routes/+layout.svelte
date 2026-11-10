@@ -9,6 +9,7 @@
     { href: "/tahun-anggaran", label: "Tahun Anggaran" },
     { href: "/dokumen", label: "Dokumen" },
     { href: "/ssh", label: "Database SHS" },
+    { href: "/master-data", label: "Master Data" },
   ];
 </script>
 

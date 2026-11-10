@@ -5,7 +5,12 @@ mod models;
 use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd};
 use commands::rincian as rin;
 use commands::kegiatan as keg;
-use models::kegiatan::{TambahKegiatanInput, TambahSubKegiatanInput};
+use models::kegiatan::{
+    TambahMasterProgramInput,
+    TambahMasterKegiatanInput,
+    TambahMasterSubKegiatanInput,
+    TambahDokumenSubKegiatanInput,
+};
 use models::rincian::{
     TambahSumberDanaInput,
     TambahRincianRekeningInput,
@@ -101,42 +106,104 @@ fn cari_atau_buat_rekening(kode: String, uraian: String) -> Result<i64, String> 
     }
 }
 
-// Kegiatan
+// Master Program
 #[tauri::command]
-fn get_kegiatan(dokumen_id: i64) -> Result<Vec<models::kegiatan::Kegiatan>, String> {
+fn get_master_program() -> Result<Vec<models::kegiatan::MasterProgram>, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
-    keg::get_kegiatan(&conn, dokumen_id)
+    keg::get_master_program(&conn)
 }
 
 #[tauri::command]
-fn tambah_kegiatan(input: TambahKegiatanInput) -> Result<i64, String> {
+fn tambah_master_program(input: TambahMasterProgramInput) -> Result<i64, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
-    keg::tambah_kegiatan(&conn, input)
+    keg::tambah_master_program(&conn, input)
 }
 
 #[tauri::command]
-fn hapus_kegiatan(id: i64) -> Result<(), String> {
+fn toggle_master_program(id: i64) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
-    keg::hapus_kegiatan(&conn, id)
-}
-
-// Sub Kegiatan
-#[tauri::command]
-fn get_sub_kegiatan(kegiatan_id: i64) -> Result<Vec<models::kegiatan::SubKegiatan>, String> {
-    let conn = db::init_db().map_err(|e| e.to_string())?;
-    keg::get_sub_kegiatan(&conn, kegiatan_id)
+    keg::toggle_master_program(&conn, id)
 }
 
 #[tauri::command]
-fn tambah_sub_kegiatan(input: TambahSubKegiatanInput) -> Result<i64, String> {
+fn hapus_master_program(id: i64) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
-    keg::tambah_sub_kegiatan(&conn, input)
+    keg::hapus_master_program(&conn, id)
+}
+
+// Master Kegiatan
+#[tauri::command]
+fn get_master_kegiatan(master_program_id: i64) -> Result<Vec<models::kegiatan::MasterKegiatan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::get_master_kegiatan(&conn, master_program_id)
 }
 
 #[tauri::command]
-fn hapus_sub_kegiatan(id: i64) -> Result<(), String> {
+fn tambah_master_kegiatan(input: TambahMasterKegiatanInput) -> Result<i64, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
-    keg::hapus_sub_kegiatan(&conn, id)
+    keg::tambah_master_kegiatan(&conn, input)
+}
+
+#[tauri::command]
+fn toggle_master_kegiatan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::toggle_master_kegiatan(&conn, id)
+}
+
+#[tauri::command]
+fn hapus_master_kegiatan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::hapus_master_kegiatan(&conn, id)
+}
+
+// Master Sub Kegiatan
+#[tauri::command]
+fn get_master_sub_kegiatan(master_kegiatan_id: i64) -> Result<Vec<models::kegiatan::MasterSubKegiatan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::get_master_sub_kegiatan(&conn, master_kegiatan_id)
+}
+
+#[tauri::command]
+fn get_master_sub_kegiatan_aktif() -> Result<Vec<models::kegiatan::MasterSubKegiatan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::get_master_sub_kegiatan_aktif(&conn)
+}
+
+#[tauri::command]
+fn tambah_master_sub_kegiatan(input: TambahMasterSubKegiatanInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::tambah_master_sub_kegiatan(&conn, input)
+}
+
+#[tauri::command]
+fn toggle_master_sub_kegiatan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::toggle_master_sub_kegiatan(&conn, id)
+}
+
+#[tauri::command]
+fn hapus_master_sub_kegiatan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::hapus_master_sub_kegiatan(&conn, id)
+}
+
+// Dokumen Sub Kegiatan
+#[tauri::command]
+fn get_dokumen_sub_kegiatan(dokumen_id: i64) -> Result<Vec<models::kegiatan::DokumenSubKegiatan>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::get_dokumen_sub_kegiatan(&conn, dokumen_id)
+}
+
+#[tauri::command]
+fn tambah_dokumen_sub_kegiatan(input: TambahDokumenSubKegiatanInput) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::tambah_dokumen_sub_kegiatan(&conn, input)
+}
+
+#[tauri::command]
+fn hapus_dokumen_sub_kegiatan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    keg::hapus_dokumen_sub_kegiatan(&conn, id)
 }
 
 // Sumber Dana
@@ -154,9 +221,9 @@ fn tambah_sumber_dana(input: TambahSumberDanaInput) -> Result<i64, String> {
 
 // Rincian Rekening
 #[tauri::command]
-fn get_rincian_rekening(sub_kegiatan_id: i64) -> Result<Vec<models::rincian::RincianRekening>, String> {
+fn get_rincian_rekening(dokumen_sub_kegiatan_id: i64) -> Result<Vec<models::rincian::RincianRekening>, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
-    rin::get_rincian_rekening(&conn, sub_kegiatan_id)
+    rin::get_rincian_rekening(&conn, dokumen_sub_kegiatan_id)
 }
 
 #[tauri::command]
@@ -229,12 +296,22 @@ pub fn run() {
             buat_dokumen,
             tetapkan_dokumen,
             cari_atau_buat_rekening,
-            get_kegiatan,
-            tambah_kegiatan,
-            hapus_kegiatan,
-            get_sub_kegiatan,
-            tambah_sub_kegiatan,
-            hapus_sub_kegiatan,
+            get_master_program,
+            tambah_master_program,
+            toggle_master_program,
+            hapus_master_program,
+            get_master_kegiatan,
+            tambah_master_kegiatan,
+            toggle_master_kegiatan,
+            hapus_master_kegiatan,
+            get_master_sub_kegiatan,
+            get_master_sub_kegiatan_aktif,
+            tambah_master_sub_kegiatan,
+            toggle_master_sub_kegiatan,
+            hapus_master_sub_kegiatan,
+            get_dokumen_sub_kegiatan,
+            tambah_dokumen_sub_kegiatan,
+            hapus_dokumen_sub_kegiatan,
             get_sumber_dana,
             tambah_sumber_dana,
             get_rincian_rekening,

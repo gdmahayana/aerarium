@@ -39,22 +39,22 @@ pub fn tambah_sumber_dana(conn: &Connection, input: TambahSumberDanaInput) -> Re
 
 // === RINCIAN REKENING ===
 
-pub fn get_rincian_rekening(conn: &Connection, sub_kegiatan_id: i64) -> Result<Vec<RincianRekening>, String> {
+pub fn get_rincian_rekening(conn: &Connection, dokumen_sub_kegiatan_id: i64) -> Result<Vec<RincianRekening>, String> {
     let mut stmt = conn
         .prepare("
-            SELECT rr.id, rr.sub_kegiatan_id, rr.rekening_id,
+            SELECT rr.id, rr.dokumen_sub_kegiatan_id, rr.rekening_id,
                    r.kode, r.uraian, rr.urutan, rr.created_at
             FROM rincian_rekening rr
             LEFT JOIN rekening r ON r.id = rr.rekening_id
-            WHERE rr.sub_kegiatan_id = ?1
+            WHERE rr.dokumen_sub_kegiatan_id = ?1
             ORDER BY rr.urutan
         ")
         .map_err(|e| e.to_string())?;
     let result = stmt
-        .query_map(rusqlite::params![sub_kegiatan_id], |row| {
+        .query_map(rusqlite::params![dokumen_sub_kegiatan_id], |row| {
             Ok(RincianRekening {
                 id: row.get(0)?,
-                sub_kegiatan_id: row.get(1)?,
+                dokumen_sub_kegiatan_id: row.get(1)?,
                 rekening_id: row.get(2)?,
                 rekening_kode: row.get(3)?,
                 rekening_uraian: row.get(4)?,
@@ -71,8 +71,8 @@ pub fn get_rincian_rekening(conn: &Connection, sub_kegiatan_id: i64) -> Result<V
 pub fn tambah_rincian_rekening(conn: &Connection, input: TambahRincianRekeningInput) -> Result<i64, String> {
     let urutan = input.urutan.unwrap_or(0);
     conn.execute(
-        "INSERT INTO rincian_rekening (sub_kegiatan_id, rekening_id, urutan) VALUES (?1, ?2, ?3)",
-        rusqlite::params![input.sub_kegiatan_id, input.rekening_id, urutan],
+        "INSERT INTO rincian_rekening (dokumen_sub_kegiatan_id, rekening_id, urutan) VALUES (?1, ?2, ?3)",
+        rusqlite::params![input.dokumen_sub_kegiatan_id, input.rekening_id, urutan],
     ).map_err(|e| format!("Gagal tambah rincian rekening: {}", e))?;
     Ok(conn.last_insert_rowid())
 }

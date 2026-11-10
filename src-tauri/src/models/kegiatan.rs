@@ -1,29 +1,75 @@
 use serde::{Deserialize, Serialize};
 
+// =====================
+// Master Program
+// =====================
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Kegiatan {
+pub struct MasterProgram {
     pub id: i64,
-    pub dokumen_id: i64,
     pub kode: String,
     pub uraian: String,
-    pub pagu: f64,
+    pub aktif: bool,
     pub created_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TambahKegiatanInput {
-    pub dokumen_id: i64,
+pub struct TambahMasterProgramInput {
     pub kode: String,
     pub uraian: String,
-    pub pagu: Option<f64>,
 }
 
+// =====================
+// Master Kegiatan
+// =====================
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SubKegiatan {
+pub struct MasterKegiatan {
     pub id: i64,
-    pub kegiatan_id: i64,
+    pub master_program_id: i64,
     pub kode: String,
     pub uraian: String,
+    pub aktif: bool,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TambahMasterKegiatanInput {
+    pub master_program_id: i64,
+    pub kode: String,
+    pub uraian: String,
+}
+
+// =====================
+// Master Sub Kegiatan
+// =====================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MasterSubKegiatan {
+    pub id: i64,
+    pub master_kegiatan_id: i64,
+    pub kode: String,
+    pub uraian: String,
+    pub aktif: bool,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TambahMasterSubKegiatanInput {
+    pub master_kegiatan_id: i64,
+    pub kode: String,
+    pub uraian: String,
+}
+
+// =====================
+// Dokumen Sub Kegiatan
+// =====================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DokumenSubKegiatan {
+    pub id: i64,
+    pub dokumen_id: i64,
+    pub master_sub_kegiatan_id: i64,
     pub pagu: f64,
     pub sumber_dana_id: Option<i64>,
     pub lokasi: Option<String>,
@@ -34,10 +80,9 @@ pub struct SubKegiatan {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TambahSubKegiatanInput {
-    pub kegiatan_id: i64,
-    pub kode: String,
-    pub uraian: String,
+pub struct TambahDokumenSubKegiatanInput {
+    pub dokumen_id: i64,
+    pub master_sub_kegiatan_id: i64,
     pub pagu: Option<f64>,
     pub sumber_dana_id: Option<i64>,
     pub lokasi: Option<String>,
