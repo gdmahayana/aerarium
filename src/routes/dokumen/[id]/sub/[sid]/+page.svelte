@@ -262,6 +262,24 @@
     } catch(e) { error = String(e); } finally { submitting = false; }
   }
 
+  async function hapusRekening(id: number) {
+    if (!confirm('Hapus rekening ini beserta semua isinya?')) return;
+    try { await invoke("hapus_rincian_rekening", { id }); await muat(); }
+    catch(e) { error = String(e); }
+  }
+
+  async function hapusPengelompokan(id: number) {
+    if (!confirm('Hapus pengelompokan ini beserta semua isinya?')) return;
+    try { await invoke("hapus_rincian_pengelompokan", { id }); await muat(); }
+    catch(e) { error = String(e); }
+  }
+
+  async function hapusKeterangan(id: number) {
+    if (!confirm('Hapus keterangan ini beserta semua itemnya?')) return;
+    try { await invoke("hapus_rincian_keterangan", { id }); await muat(); }
+    catch(e) { error = String(e); }
+  }
+
   async function hapusItem(id: number) {
     if (!confirm("Hapus item ini?")) return;
     try { await invoke("hapus_rincian_item", { id }); await muat(); }

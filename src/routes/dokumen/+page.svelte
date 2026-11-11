@@ -52,6 +52,7 @@
 
   // Kelompokkan dokumen per jenis
   const jenisList = ["RKA-SKPD", "DPA-SKPD", "RKA-SKPD Perubahan", "DPPA-SKPD"];
+  const jenisDokumenResmi = ["RKA-SKPD", "DPA-SKPD", "RKA-SKPD Perubahan", "DPPA-SKPD"];
 
   function dokumenPerJenis(jenis: string) {
     return dokumenList.filter(d => d.jenis === jenis).sort((a, b) => b.versi - a.versi);
@@ -88,6 +89,32 @@
       <a href="/dokumen/buat" class="btn btn-secondary">Buat Dokumen Pertama</a>
     </div>
   {:else}
+    <!-- Kertas Kerja -->
+    {#if dokumenPerJenis("Kertas Kerja").length > 0}
+      <div class="card" style="margin-bottom:16px; border-left:3px solid var(--accent);">
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span class="label">Kertas Kerja</span>
+            <span style="font-size:11px; color:var(--text-3); margin-left:8px;">— dokumen persiapan internal</span>
+          </div>
+        </div>
+        {#each dokumenPerJenis("Kertas Kerja") as dok, i}
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 20px; {i < dokumenPerJenis("Kertas Kerja").length - 1 ? "border-bottom:1px solid var(--border);" : ""}">
+            <div>
+              <span style="font-size:13px; font-weight:600; color:var(--text);">v{dok.versi}</span>
+              {#if dok.catatan}
+                <div style="font-size:11px; color:var(--text-3); margin-top:2px;">{dok.catatan}</div>
+              {/if}
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="badge {badgeClass[dok.status] || 'badge-draft'}">{dok.status}</span>
+              <a href="/dokumen/{dok.id}" class="btn btn-ghost" style="font-size:12px;">Buka →</a>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     <div style="display:flex; flex-direction:column; gap:16px;">
       {#each jenisList as jenis}
         {#if dokumenPerJenis(jenis).length > 0}
