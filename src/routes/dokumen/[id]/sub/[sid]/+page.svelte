@@ -80,6 +80,17 @@
 
   // Form item (modal)
   let showModalItem = $state(false);
+  let showModalEdit = $state(false);
+  let editItemId = $state<number | null>(null);
+  let fEdit = $state({
+    uraian: "", spesifikasi: "",
+    volume: "1", satuan: "",
+    koef2: "", satuan2: "",
+    koef3: "", satuan3: "",
+    koef4: "", satuan4: "",
+    harga: "", ppn: false,
+  });
+  let koefCountEdit = $state(1);
   let activeKetId = $state<number | null>(null);
   let koefCount = $state(1);
   let shsList = $state<ShsItem[]>([]);
@@ -262,6 +273,51 @@
     } catch(e) { error = String(e); } finally { submitting = false; }
   }
 
+  function bukaEditItem(item: RincianItem) {
+    editItemId = item.id;
+    koefCountEdit = item.koef4 ? 4 : item.koef3 ? 3 : item.koef2 ? 2 : 1;
+    fEdit = {
+      uraian: item.uraian,
+      spesifikasi: item.spesifikasi || "",
+      volume: String(item.volume),
+      satuan: item.satuan,
+      koef2: item.koef2 ? String(item.koef2) : "",
+      satuan2: item.satuan2 || "",
+      koef3: item.koef3 ? String(item.koef3) : "",
+      satuan3: item.satuan3 || "",
+      koef4: item.koef4 ? String(item.koef4) : "",
+      satuan4: item.satuan4 || "",
+      harga: String(item.harga),
+      ppn: item.ppn > 0,
+    };
+    showModalEdit = true;
+  }
+
+  async function simpanEditItem() {
+    if (!fEdit.uraian || !fEdit.satuan || !fEdit.harga || !editItemId) return;
+    submitting = true;
+    try {
+      await invoke("update_rincian_item", {
+        id: editItemId,
+        uraian: fEdit.uraian,
+        spesifikasi: fEdit.spesifikasi || null,
+        volume: parseFloat(fEdit.volume) || 1,
+        satuan: fEdit.satuan,
+        koef2: fEdit.koef2 ? parseFloat(fEdit.koef2) : null,
+        satuan2: fEdit.satuan2 || null,
+        koef3: fEdit.koef3 ? parseFloat(fEdit.koef3) : null,
+        satuan3: fEdit.satuan3 || null,
+        koef4: fEdit.koef4 ? parseFloat(fEdit.koef4) : null,
+        satuan4: fEdit.satuan4 || null,
+        harga: parseFloat(fEdit.harga),
+        ppn: fEdit.ppn ? 11 : 0,
+      });
+      showModalEdit = false;
+      await muat();
+    } catch(e) { error = String(e); }
+    finally { submitting = false; }
+  }
+
   async function hapusRekening(id: number) {
     if (!confirm('Hapus rekening ini beserta semua isinya?')) return;
     try { await invoke("hapus_rincian_rekening", { id }); await muat(); }
@@ -436,6 +492,78 @@
   </div>
 {/if}
 
+<!-- Modal Edit Item -->
+{#if showModalEdit}
+  <div style="position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; display:flex; align-items:center; justify-content:center;" onclick={() => showModalEdit = false}>
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; width:560px; max-height:90vh; overflow-y:auto; padding:24px;" onclick={(e) => e.stopPropagation()}>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="font-size:15px; font-weight:700; color:var(--text); margin:0;">Edit Item Belanja</h3>
+        <button onclick={() => showModalEdit = false} style="background:none; border:none; color:var(--text-3); font-size:18px; cursor:pointer;">×</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div class="label" style="margin-bottom:6px;">Komponen <span style="color:var(--accent);">*</span></div>
+          <input class="input" bind:value={fEdit.uraian} />
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:6px;">Spesifikasi</div>
+          <input class="input" bind:value={fEdit.spesifikasi} />
+        </div>
+        <div style="background:var(--surface-2); border-radius:8px; padding:14px;">
+          <div class="label" style="margin-bottom:10px;">Koefisien (Volume)</div>
+          <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+            <span style="font-size:11px; color:var(--text-3); width:16px;">1</span>
+            <input class="input" style="flex:1;" type="number" bind:value={fEdit.volume} />
+            <input class="input" style="flex:1;" bind:value={fEdit.satuan} />
+          </div>
+          {#if koefCountEdit >= 2}
+            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+              <span style="font-size:11px; color:var(--text-3); width:16px;">×</span>
+              <input class="input" style="flex:1;" type="number" bind:value={fEdit.koef2} />
+              <input class="input" style="flex:1;" bind:value={fEdit.satuan2} />
+            </div>
+          {/if}
+          {#if koefCountEdit >= 3}
+            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+              <span style="font-size:11px; color:var(--text-3); width:16px;">×</span>
+              <input class="input" style="flex:1;" type="number" bind:value={fEdit.koef3} />
+              <input class="input" style="flex:1;" bind:value={fEdit.satuan3} />
+            </div>
+          {/if}
+          {#if koefCountEdit >= 4}
+            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+              <span style="font-size:11px; color:var(--text-3); width:16px;">×</span>
+              <input class="input" style="flex:1;" type="number" bind:value={fEdit.koef4} />
+              <input class="input" style="flex:1;" bind:value={fEdit.satuan4} />
+            </div>
+          {/if}
+          {#if koefCountEdit < 4}
+            <button class="btn btn-ghost" style="font-size:11px; margin-top:4px;" onclick={() => koefCountEdit++}>+ Koefisien</button>
+          {/if}
+        </div>
+        <div style="display:flex; gap:12px; align-items:flex-end;">
+          <div style="flex:1;">
+            <div class="label" style="margin-bottom:6px;">Harga Satuan <span style="color:var(--accent);">*</span></div>
+            <input class="input" type="number" bind:value={fEdit.harga} />
+          </div>
+          <div style="padding-bottom:8px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2); cursor:pointer;">
+              <input type="checkbox" bind:checked={fEdit.ppn} />
+              PPN 11%
+            </label>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; padding-top:4px;">
+          <button onclick={simpanEditItem} disabled={submitting} class="btn btn-primary">
+            {submitting ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+          <button onclick={() => showModalEdit = false} class="btn btn-ghost">Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <!-- Header -->
 <div class="page-header">
   <div style="display:flex; align-items:center; gap:10px;">
@@ -573,6 +701,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:12px;">
                 <span style="font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums;">{formatRp(totalItemCalc(item))}</span>
+                <button onclick={() => bukaEditItem(item)} class="btn btn-ghost" style="font-size:11px;">Edit</button>
                 <button onclick={() => hapusItem(item.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
               </div>
             </div>

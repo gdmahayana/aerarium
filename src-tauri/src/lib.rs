@@ -3,6 +3,7 @@ mod commands;
 mod models;
 
 use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd, tambah_shs_manual as tambah_shs_cmd, hapus_shs as hapus_shs_cmd};
+use commands::export::export_shs_rencana as export_shs_rencana_cmd;
 use commands::rincian as rin;
 use commands::kegiatan as keg;
 use models::kegiatan::{
@@ -26,6 +27,12 @@ use models::dokumen::BuatDokumenInput;
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You have been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn export_shs_rencana(tahun_anggaran_id: i64, output_path: String) -> Result<usize, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    export_shs_rencana_cmd(&conn, tahun_anggaran_id, &output_path)
 }
 
 #[tauri::command]
@@ -308,6 +315,12 @@ fn hapus_rincian_keterangan(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn update_rincian_item(id: i64, uraian: String, spesifikasi: Option<String>, volume: f64, satuan: String, koef2: Option<f64>, satuan2: Option<String>, koef3: Option<f64>, satuan3: Option<String>, koef4: Option<f64>, satuan4: Option<String>, harga: f64, ppn: f64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::update_rincian_item(&conn, id, &uraian, spesifikasi.as_deref(), volume, &satuan, koef2, satuan2.as_deref(), koef3, satuan3.as_deref(), koef4, satuan4.as_deref(), harga, ppn)
+}
+
+#[tauri::command]
 fn hapus_rincian_item(id: i64) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     rin::hapus_rincian_item(&conn, id)
@@ -324,6 +337,7 @@ pub fn run() {
             greet,
             import_shs,
             get_shs,
+            export_shs_rencana,
             tambah_shs,
             hapus_shs,
             get_tahun_anggaran,
@@ -364,6 +378,7 @@ pub fn run() {
             hapus_rincian_rekening,
             hapus_rincian_pengelompokan,
             hapus_rincian_keterangan,
+            update_rincian_item,
             hapus_rincian_item,
         ])
         .run(tauri::generate_context!())

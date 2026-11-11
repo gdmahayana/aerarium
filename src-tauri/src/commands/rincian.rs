@@ -257,3 +257,26 @@ pub fn hapus_rincian_keterangan(conn: &Connection, id: i64) -> Result<(), String
     )).map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub fn update_rincian_item(
+    conn: &Connection,
+    id: i64,
+    uraian: &str,
+    spesifikasi: Option<&str>,
+    volume: f64,
+    satuan: &str,
+    koef2: Option<f64>,
+    satuan2: Option<&str>,
+    koef3: Option<f64>,
+    satuan3: Option<&str>,
+    koef4: Option<f64>,
+    satuan4: Option<&str>,
+    harga: f64,
+    ppn: f64,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE rincian_item SET uraian=?1, spesifikasi=?2, volume=?3, satuan=?4, koef2=?5, satuan2=?6, koef3=?7, satuan3=?8, koef4=?9, satuan4=?10, harga=?11, ppn=?12 WHERE id=?13",
+        rusqlite::params![uraian, spesifikasi, volume, satuan, koef2, satuan2, koef3, satuan3, koef4, satuan4, harga, ppn, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}

@@ -31,6 +31,8 @@
   let loading = $state(true);
   let error = $state("");
   let importing = $state(false);
+  let showModalImport = $state(false);
+  let importJenis = $state("SSH");
   let halaman = $state(1);
   const perHalaman = 100;
   let showForm = $state(false);
@@ -77,6 +79,14 @@
   );
 
   let totalRencana = $derived(shsList.filter(s => s.sumber === "rencana").length);
+  let jenisTersedia = $derived([...new Set(shsList.filter(s => s.sumber === tabAktif).map(s => s.jenis))].sort());
+
+  const warnaBadgeJenis: Record<string, string> = {
+    SSH:  "background:#1d4ed8; color:#fff;",
+    SBU:  "background:#065f46; color:#fff;",
+    HSPK: "background:#92400e; color:#fff;",
+    ASB:  "background:#6b21a8; color:#fff;",
+  };
   let totalResmi = $derived(shsList.filter(s => s.sumber === "resmi").length);
 
   function formatRp(n: number) {
@@ -112,6 +122,23 @@
     } catch(e) { error = String(e); }
   }
 
+  async function exportSHSRencana() {
+    if (!tahunAktif) return;
+    try {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const filePath = await save({
+        filters: [{ name: "Excel", extensions: ["xlsx"] }],
+        defaultPath: "SHS_Rencana_" + tahunAktif.tahun + ".xlsx",
+      });
+      if (!filePath) return;
+      const count = await invoke<number>("export_shs_rencana", {
+        tahunAnggaranId: tahunAktif.id,
+        outputPath: filePath,
+      });
+      alert("Berhasil export " + count + " item SHS Rencana ke Excel");
+    } catch(e) { error = String(e); }
+  }
+
   async function importExcel() {
     if (!tahunAktif) return;
     importing = true;
@@ -124,14 +151,50 @@
       const count = await invoke<number>("import_shs", {
         filePath: filePath as string,
         tahunAnggaranId: tahunAktif.id,
-        jenis: filterJenis || "SSH",
+        jenis: importJenis,
       });
       shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
-      alert("Berhasil import " + count + " item SHS Resmi");
+      showModalImport = false;
+      alert("Berhasil import " + count + " item " + importJenis + " Resmi");
     } catch(e) { error = String(e); }
     finally { importing = false; }
   }
 </script>
+
+<!-- Modal pilih jenis sebelum import -->
+{#if showModalImport}
+  <div style="position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; display:flex; align-items:center; justify-content:center;" onclick={() => showModalImport = false}>
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; width:400px; padding:24px;" onclick={(e) => e.stopPropagation()}>
+      <h3 style="font-size:15px; font-weight:700; margin:0 0 8px;">Import SHS Resmi</h3>
+      <p style="font-size:12px; color:var(--text-3); margin:0 0 20px;">Pilih jenis SHS sesuai file Excel yang akan diimport. Format kolom mengikuti export SIPD.</p>
+
+      <div class="label" style="margin-bottom:10px;">Jenis SHS</div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+        {#each jenisList as j}
+          <button
+            onclick={() => importJenis = j}
+            style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; border:2px solid {importJenis === j ? 'var(--accent)' : 'var(--border)'}; background:{importJenis === j ? 'rgba(99,102,241,0.08)' : 'transparent'}; cursor:pointer; text-align:left;"
+          >
+            <span style="font-size:12px; font-weight:700; padding:2px 8px; border-radius:4px; {warnaBadgeJenis[j] || ''}">{j}</span>
+            <span style="font-size:12px; color:var(--text-2);">
+              {#if j === 'SSH'}Standar Harga Satuan
+              {:else if j === 'SBU'}Standar Biaya Umum
+              {:else if j === 'HSPK'}Harga Satuan Pekerjaan Konstruksi
+              {:else if j === 'ASB'}Analisis Standar Belanja{/if}
+            </span>
+          </button>
+        {/each}
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick={importExcel} disabled={importing} class="btn btn-primary">
+          {importing ? "Mengimpor..." : "Pilih File & Import"}
+        </button>
+        <button onclick={() => showModalImport = false} class="btn btn-ghost">Batal</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <div class="page-header">
   <h2>Database SHS</h2>
@@ -181,17 +244,22 @@
     <input type="text" placeholder="Cari kode atau uraian..." bind:value={cari} class="input" style="flex:1; min-width:200px; max-width:320px;" />
     <select class="input" style="width:120px;" bind:value={filterJenis}>
       <option value="">Semua Jenis</option>
-      {#each jenisList as j}
-        <option value={j}>{j}</option>
+      {#each jenisTersedia as j}
+        <option value={j}>{j} ({shsList.filter(s => s.sumber === tabAktif && s.jenis === j).length})</option>
       {/each}
     </select>
     <div style="flex:1;"></div>
     <button onclick={() => { showForm = !showForm; }} class="btn btn-primary" style="font-size:12px;">
       + Input Manual
     </button>
+    {#if tabAktif === 'rencana' && totalRencana > 0}
+      <button onclick={exportSHSRencana} class="btn btn-ghost" style="font-size:12px;">
+        Export Excel →
+      </button>
+    {/if}
     {#if tabAktif === 'resmi'}
-      <button onclick={importExcel} disabled={importing} class="btn btn-ghost" style="font-size:12px;">
-        {importing ? "Mengimpor..." : "Import Excel"}
+      <button onclick={() => showModalImport = true} disabled={importing} class="btn btn-ghost" style="font-size:12px;">
+        Import Excel
       </button>
     {/if}
   </div>
@@ -275,7 +343,7 @@
         <tbody>
           {#each shsTampil as item, i}
             <tr style="border-bottom:1px solid var(--border); {i % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : ''}">
-              <td style="padding:10px 16px;"><span class="badge">{item.jenis}</span></td>
+              <td style="padding:10px 16px;"><span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; {warnaBadgeJenis[item.jenis] || 'background:var(--surface-2); color:var(--text-2);'} ">{item.jenis}</span></td>
               <td style="padding:10px 16px; font-size:12px; color:var(--text-3); font-family:monospace;">{item.kode}</td>
               <td style="padding:10px 16px; font-size:13px; color:var(--text);">{item.uraian}</td>
               <td style="padding:10px 16px; font-size:12px; color:var(--text-3);">{item.spesifikasi || '—'}</td>
