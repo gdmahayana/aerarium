@@ -218,3 +218,42 @@ pub fn hapus_rincian_item(conn: &Connection, id: i64) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub fn hapus_rincian_rekening(conn: &Connection, id: i64) -> Result<(), String> {
+    // Hapus cascade manual: item → keterangan → pengelompokan → rekening
+    conn.execute_batch(&format!(
+        "DELETE FROM rincian_item WHERE rincian_keterangan_id IN (
+            SELECT rk.id FROM rincian_keterangan rk
+            JOIN rincian_pengelompokan rp ON rk.rincian_pengelompokan_id = rp.id
+            WHERE rp.rincian_rekening_id = {id}
+         );
+         DELETE FROM rincian_keterangan WHERE rincian_pengelompokan_id IN (
+            SELECT id FROM rincian_pengelompokan WHERE rincian_rekening_id = {id}
+         );
+         DELETE FROM rincian_pengelompokan WHERE rincian_rekening_id = {id};
+         DELETE FROM rincian_rekening WHERE id = {id};",
+        id = id
+    )).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn hapus_rincian_pengelompokan(conn: &Connection, id: i64) -> Result<(), String> {
+    conn.execute_batch(&format!(
+        "DELETE FROM rincian_item WHERE rincian_keterangan_id IN (
+            SELECT id FROM rincian_keterangan WHERE rincian_pengelompokan_id = {id}
+         );
+         DELETE FROM rincian_keterangan WHERE rincian_pengelompokan_id = {id};
+         DELETE FROM rincian_pengelompokan WHERE id = {id};",
+        id = id
+    )).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn hapus_rincian_keterangan(conn: &Connection, id: i64) -> Result<(), String> {
+    conn.execute_batch(&format!(
+        "DELETE FROM rincian_item WHERE rincian_keterangan_id = {id};
+         DELETE FROM rincian_keterangan WHERE id = {id};",
+        id = id
+    )).map_err(|e| e.to_string())?;
+    Ok(())
+}

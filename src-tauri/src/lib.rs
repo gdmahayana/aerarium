@@ -290,6 +290,24 @@ fn tambah_rincian_item(input: TambahRincianItemInput) -> Result<i64, String> {
 }
 
 #[tauri::command]
+fn hapus_rincian_rekening(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::hapus_rincian_rekening(&conn, id)
+}
+
+#[tauri::command]
+fn hapus_rincian_pengelompokan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::hapus_rincian_pengelompokan(&conn, id)
+}
+
+#[tauri::command]
+fn hapus_rincian_keterangan(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::hapus_rincian_keterangan(&conn, id)
+}
+
+#[tauri::command]
 fn hapus_rincian_item(id: i64) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     rin::hapus_rincian_item(&conn, id)
@@ -343,6 +361,9 @@ pub fn run() {
             tambah_rincian_keterangan,
             get_rincian_item,
             tambah_rincian_item,
+            hapus_rincian_rekening,
+            hapus_rincian_pengelompokan,
+            hapus_rincian_keterangan,
             hapus_rincian_item,
         ])
         .run(tauri::generate_context!())

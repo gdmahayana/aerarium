@@ -471,7 +471,10 @@
           <span style="font-size:11px; font-family:monospace; color:var(--text-3);">{rek.rekening_kode}</span>
           <span style="font-size:13px; font-weight:600; color:var(--text);">{rek.rekening_uraian}</span>
         </div>
-        <button onclick={() => { activeRekId = rek.id; showFormPg = true; activePgId = null; showFormKet = false; }} class="btn btn-ghost" style="font-size:11px;">+ Pengelompokan</button>
+        <div style="display:flex; gap:6px;">
+          <button onclick={() => { activeRekId = rek.id; showFormPg = true; activePgId = null; showFormKet = false; }} class="btn btn-ghost" style="font-size:11px;">+ Pengelompokan</button>
+          <button onclick={() => hapusRekening(rek.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
+        </div>
       </div>
 
       <!-- Form Pengelompokan -->
@@ -500,7 +503,10 @@
           </div>
           <div style="display:flex; gap:10px; align-items:center;">
             <span style="font-size:12px; color:var(--text-2);">{formatRp(totalPengelompokan(pg))}</span>
-            <button onclick={() => { activePgId = pg.id; showFormKet = true; activeRekId = null; showFormPg = false; }} class="btn btn-ghost" style="font-size:11px;">+ Keterangan</button>
+            <div style="display:flex; gap:6px;">
+              <button onclick={() => { activePgId = pg.id; showFormKet = true; activeRekId = null; showFormPg = false; }} class="btn btn-ghost" style="font-size:11px;">+ Keterangan</button>
+              <button onclick={() => hapusPengelompokan(pg.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
+            </div>
           </div>
         </div>
 
@@ -527,7 +533,10 @@
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
               <span style="font-size:12px; color:var(--text-2);">{formatRp(totalKeterangan(ket))}</span>
-              <button onclick={() => bukaModalItem(ket.id)} class="btn btn-ghost" style="font-size:11px;">+ Item</button>
+              <div style="display:flex; gap:6px;">
+                <button onclick={() => bukaModalItem(ket.id)} class="btn btn-ghost" style="font-size:11px;">+ Item</button>
+                <button onclick={() => hapusKeterangan(ket.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
+              </div>
             </div>
           </div>
 
