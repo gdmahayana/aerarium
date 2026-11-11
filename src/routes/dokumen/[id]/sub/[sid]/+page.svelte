@@ -43,6 +43,18 @@
     pengelompokanList: RincianPengelompokan[];
   }
 
+  interface ShsItem {
+    id: number;
+    jenis: string;
+    sumber: string;
+    kode: string;
+    uraian: string;
+    spesifikasi: string | null;
+    satuan: string;
+    harga: number;
+    kode_rekening: string | null;
+  }
+
   const dokumenId = $derived(Number($page.params.id));
   const subId = $derived(Number($page.params.sid));
 
@@ -70,6 +82,10 @@
   let showModalItem = $state(false);
   let activeKetId = $state<number | null>(null);
   let koefCount = $state(1);
+  let shsList = $state<ShsItem[]>([]);
+  let cariShs = $state("");
+  let showShsResults = $state(false);
+  let tahunAktifId = $state(0);
   let fItem = $state({
     uraian: "", spesifikasi: "",
     volume: "1", satuan: "",
@@ -144,7 +160,40 @@
     } catch(e) { error = String(e); }
   }
 
-  onMount(async () => { await muat(); loading = false; });
+  onMount(async () => {
+    await muat();
+    loading = false;
+    try {
+      const tahunList = await invoke<any[]>("get_tahun_anggaran");
+      const ta = tahunList.find((t: any) => t.aktif);
+      if (ta) {
+        tahunAktifId = ta.id;
+        shsList = await invoke<ShsItem[]>("get_shs", { tahunAnggaranId: ta.id });
+      }
+    } catch(e) {}
+  });
+
+  let shsFiltered = $derived(
+    cariShs.length < 2 ? [] :
+    shsList.filter(s =>
+      s.uraian.toLowerCase().includes(cariShs.toLowerCase()) ||
+      s.kode.toLowerCase().includes(cariShs.toLowerCase()) ||
+      (s.spesifikasi && s.spesifikasi.toLowerCase().includes(cariShs.toLowerCase()))
+    ).slice(0, 8)
+  );
+
+  function pilihShs(shs: ShsItem) {
+    fItem.uraian = shs.uraian;
+    fItem.spesifikasi = shs.spesifikasi || "";
+    fItem.satuan = shs.satuan;
+    fItem.harga = String(shs.harga);
+    cariShs = shs.uraian;
+    showShsResults = false;
+    // Auto-suggest rekening
+    if (shs.kode_rekening && !fRekKode) {
+      fRekKode = shs.kode_rekening.split(",")[0].trim();
+    }
+  }
 
   async function tambahRekening() {
     if (!fRekKode || !fRekUraian) return;
@@ -180,6 +229,8 @@
   function bukaModalItem(ketId: number) {
     activeKetId = ketId;
     koefCount = 1;
+    cariShs = "";
+    showShsResults = false;
     fItem = { uraian: "", spesifikasi: "", volume: "1", satuan: "", koef2: "", satuan2: "", koef3: "", satuan3: "", koef4: "", satuan4: "", harga: "", ppn: false };
     showModalItem = true;
   }
@@ -228,10 +279,54 @@
       </div>
 
       <div style="display:flex; flex-direction:column; gap:14px;">
+        <!-- Search SHS -->
+        <div style="position:relative;">
+          <div class="label" style="margin-bottom:6px;">Cari dari Database SHS <span style="font-size:11px; color:var(--text-3); font-weight:400;">(opsional)</span></div>
+          <input
+            class="input"
+            bind:value={cariShs}
+            oninput={() => showShsResults = true}
+            onfocus={() => showShsResults = cariShs.length >= 2}
+            placeholder="Ketik nama barang untuk cari SHS..."
+          />
+          {#if showShsResults && shsFiltered.length > 0}
+            <div style="position:absolute; top:100%; left:0; right:0; z-index:200; background:var(--surface); border:1px solid var(--border); border-radius:6px; margin-top:4px; max-height:240px; overflow-y:auto; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+              {#each shsFiltered as shs}
+                <button
+                  style="width:100%; text-align:left; padding:10px 14px; background:transparent; border:none; border-bottom:1px solid var(--border); cursor:pointer; display:flex; flex-direction:column; gap:2px;"
+                  onmouseenter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
+                  onmouseleave={(e) => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  onclick={() => pilihShs(shs)}
+                >
+                  <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                    <span style="font-size:13px; color:var(--text); font-weight:500;">{shs.uraian}</span>
+                    <span style="font-size:12px; color:var(--accent); font-variant-numeric:tabular-nums; margin-left:12px;">{new Intl.NumberFormat("id-ID", {style:"currency",currency:"IDR",minimumFractionDigits:0}).format(shs.harga)}</span>
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    {#if shs.spesifikasi}
+                      <span style="font-size:11px; color:var(--text-3);">{shs.spesifikasi}</span>
+                    {/if}
+                    <span style="font-size:11px; color:var(--text-3);">— {shs.satuan}</span>
+                    <span style="font-size:11px; color:var(--text-3); font-family:monospace;">{shs.jenis}</span>
+                  </div>
+                </button>
+              {/each}
+            </div>
+          {:else if showShsResults && cariShs.length >= 2 && shsFiltered.length === 0}
+            <div style="position:absolute; top:100%; left:0; right:0; z-index:200; background:var(--surface); border:1px solid var(--border); border-radius:6px; margin-top:4px; padding:12px 14px;">
+              <span style="font-size:12px; color:var(--text-3);">Tidak ditemukan di SHS — input manual di bawah</span>
+            </div>
+          {/if}
+        </div>
+
+        <div style="border-top:1px solid var(--border); padding-top:14px;">
+          <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;">Detail item — terisi otomatis dari SHS atau input manual</div>
+        </div>
+
         <!-- Komponen -->
         <div>
           <div class="label" style="margin-bottom:6px;">Komponen <span style="color:var(--accent);">*</span></div>
-          <input class="input" bind:value={fItem.uraian} placeholder="Nama barang / jasa..." autofocus />
+          <input class="input" bind:value={fItem.uraian} placeholder="Nama barang / jasa..." />
         </div>
         <div>
           <div class="label" style="margin-bottom:6px;">Spesifikasi</div>
