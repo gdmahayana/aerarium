@@ -3,7 +3,7 @@ mod commands;
 mod models;
 
 use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd, tambah_shs_manual as tambah_shs_cmd, hapus_shs as hapus_shs_cmd};
-use commands::export::export_shs_rencana as export_shs_rencana_cmd;
+use commands::export::{export_shs_rencana as export_shs_rencana_cmd, export_kertas_kerja as export_kertas_kerja_cmd};
 use commands::rincian as rin;
 use commands::kegiatan as keg;
 use models::kegiatan::{
@@ -33,6 +33,12 @@ fn greet(name: &str) -> String {
 fn export_shs_rencana(tahun_anggaran_id: i64, output_path: String) -> Result<usize, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     export_shs_rencana_cmd(&conn, tahun_anggaran_id, &output_path)
+}
+
+#[tauri::command]
+fn export_kertas_kerja(dokumen_id: i64, output_path: String) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    export_kertas_kerja_cmd(&conn, dokumen_id, &output_path)
 }
 
 #[tauri::command]
@@ -101,6 +107,18 @@ fn buat_dokumen(input: BuatDokumenInput) -> Result<i64, String> {
 fn tetapkan_dokumen(id: i64, label: String) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     dok::tetapkan(&conn, id, &label)
+}
+
+#[tauri::command]
+fn jadikan_rka(kertas_kerja_id: i64) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    dok::jadikan_rka(&conn, kertas_kerja_id)
+}
+
+#[tauri::command]
+fn get_dashboard_summary(tahun_anggaran_id: i64) -> Result<(f64, f64, i64), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    dok::get_dashboard_summary(&conn, tahun_anggaran_id)
 }
 
 // Rekening
@@ -326,6 +344,12 @@ fn hapus_rincian_item(id: i64) -> Result<(), String> {
     rin::hapus_rincian_item(&conn, id)
 }
 
+#[tauri::command]
+fn cek_status_rincian(dokumen_id: i64) -> Result<Vec<(i64, bool)>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::cek_status_rincian(&conn, dokumen_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     db::init_db().expect("Gagal inisialisasi database");
@@ -338,6 +362,7 @@ pub fn run() {
             import_shs,
             get_shs,
             export_shs_rencana,
+            export_kertas_kerja,
             tambah_shs,
             hapus_shs,
             get_tahun_anggaran,
@@ -347,6 +372,8 @@ pub fn run() {
             get_dokumen,
             buat_dokumen,
             tetapkan_dokumen,
+            jadikan_rka,
+            get_dashboard_summary,
             cari_atau_buat_rekening,
             get_master_program,
             tambah_master_program,
@@ -380,6 +407,7 @@ pub fn run() {
             hapus_rincian_keterangan,
             update_rincian_item,
             hapus_rincian_item,
+            cek_status_rincian,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

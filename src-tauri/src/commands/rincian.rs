@@ -280,3 +280,28 @@ pub fn update_rincian_item(
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub fn cek_status_rincian(conn: &Connection, dokumen_id: i64) -> Result<Vec<(i64, bool)>, String> {
+    let mut stmt = conn.prepare("
+        SELECT dsk.id,
+               COUNT(CASE WHEN ri.shs_id IS NULL THEN 1
+                          WHEN s.sumber != 'resmi' THEN 1
+                          ELSE NULL END) as belum_resmi
+        FROM dokumen_sub_kegiatan dsk
+        LEFT JOIN rincian_rekening rrek ON rrek.dokumen_sub_kegiatan_id = dsk.id
+        LEFT JOIN rincian_pengelompokan rp ON rp.rincian_rekening_id = rrek.id
+        LEFT JOIN rincian_keterangan rk ON rk.rincian_pengelompokan_id = rp.id
+        LEFT JOIN rincian_item ri ON ri.rincian_keterangan_id = rk.id
+        LEFT JOIN shs s ON s.id = ri.shs_id
+        WHERE dsk.dokumen_id = ?1
+        GROUP BY dsk.id
+    ").map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map(rusqlite::params![dokumen_id], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)? > 0))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    Ok(rows)
+}

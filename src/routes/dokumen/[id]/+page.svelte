@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { save } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -91,6 +92,7 @@
           invoke<MasterSubKegiatan[]>("get_master_sub_kegiatan_aktif"),
           invoke<SumberDana[]>("get_sumber_dana", { tahunAnggaranId: tahunAktif.id }),
         ]);
+        await muatStatus();
       }
     } catch (e) {
       error = String(e);
@@ -152,6 +154,7 @@
       });
       dskList = await invoke<DokumenSubKegiatan[]>("get_dokumen_sub_kegiatan", { dokumenId });
       showForm = false;
+      await muatStatus();
     } catch (e) {
       error = String(e);
     } finally {
@@ -204,6 +207,54 @@
   }
 
   let totalPagu = $derived(dskList.reduce((s, d) => s + d.pagu, 0));
+  let statusRincian = $state<Record<number, boolean>>({});
+
+  async function muatStatus() {
+    try {
+      const hasil = await invoke<[number, boolean][]>("cek_status_rincian", { dokumenId });
+      const map: Record<number, boolean> = {};
+      for (const [id, adaWarning] of hasil) map[id] = adaWarning;
+      statusRincian = map;
+    } catch(e) {}
+  }
+
+  let exporting = $state(false);
+  let exportMsg = $state("");
+
+  async function jadikanRka() {
+    const adaWarning = Object.values(statusRincian).some(v => v);
+    if (adaWarning) {
+      error = "Ada sub kegiatan dengan item belum SHS Resmi. Selesaikan terlebih dahulu.";
+      return;
+    }
+    if (!confirm("Jadikan Kertas Kerja ini sebagai RKA-SKPD? Semua rincian akan disalin.")) return;
+    try {
+      const rkaId = await invoke<number>("jadikan_rka", { kertasKerjaId: dokumenId });
+      goto("/dokumen/" + rkaId);
+    } catch(e) {
+      error = String(e);
+    }
+  }
+
+  async function exportKertasKerja() {
+    if (!dokumen) return;
+    try {
+      exporting = true;
+      exportMsg = "";
+      const outputPath = await save({
+        defaultPath: `Kertas_Kerja_${dokumen.jenis}_v${dokumen.versi}.xlsx`,
+        filters: [{ name: "Excel", extensions: ["xlsx"] }],
+      });
+      if (!outputPath) return;
+      await invoke("export_kertas_kerja", { dokumenId, outputPath });
+      exportMsg = "✅ File berhasil diekspor.";
+    } catch (e) {
+      exportMsg = "❌ " + String(e);
+    } finally {
+      exporting = false;
+      setTimeout(() => exportMsg = "", 4000);
+    }
+  }
 </script>
 
 <div class="page-header">
@@ -213,8 +264,31 @@
   </div>
   {#if dokumen}
     <span class="badge badge-{dokumen.status}">{dokumen.status}</span>
+    <button
+      onclick={exportKertasKerja}
+      disabled={exporting || dskList.length === 0}
+      class="btn btn-ghost"
+      style="font-size:12px; margin-left:auto;"
+    >
+      {exporting ? "Mengekspor..." : "⬇ Export Excel"}
+    </button>
+    {#if dokumen.jenis === "Kertas Kerja" && (dokumen.status === "draft" || dokumen.status === "konsep")}
+      <button
+        onclick={jadikanRka}
+        class="btn btn-primary"
+        style="font-size:12px;"
+      >
+        → Jadikan RKA
+      </button>
+    {/if}
   {/if}
 </div>
+
+{#if exportMsg}
+  <div style="font-size:12px; padding:8px 14px; border-radius:6px; margin-bottom:12px; background:var(--surface-2); color:var(--text-2);">
+    {exportMsg}
+  </div>
+{/if}
 
 {#if error}
   <div class="alert-error">
@@ -363,7 +437,12 @@
           <!-- Baris utama -->
           <div style="display:flex; align-items:center; gap:12px; padding:14px 20px;">
             <div style="flex:1; cursor:pointer;" onclick={() => goto("/dokumen/" + dokumenId + "/sub/" + dsk.id)}>
-              <div style="font-size:11px; font-family:monospace; color:var(--text-3);">{kodeSubKegiatan(dsk.master_sub_kegiatan_id)}</div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; font-family:monospace; color:var(--text-3);">{kodeSubKegiatan(dsk.master_sub_kegiatan_id)}</span>
+                {#if statusRincian[dsk.id]}
+                  <span title="Ada item belum SHS Resmi" style="font-size:11px; background:#fff3cd; color:#856404; border:1px solid #ffc107; border-radius:4px; padding:1px 6px;">⚠️ Belum Resmi</span>
+                {/if}
+              </div>
               <div style="font-size:13px; font-weight:600; color:var(--text); margin-top:2px;">{masterSubList.find(s => s.id === dsk.master_sub_kegiatan_id)?.uraian || ""}</div>
               <div style="display:flex; gap:16px; margin-top:4px;">
                 {#if dsk.pagu > 0}

@@ -22,6 +22,7 @@
   let tahunAktif = $state<TahunAnggaran | null>(null);
   let dokumenList = $state<Dokumen[]>([]);
   let loading = $state(true);
+  let summary = $state<[number, number, number] | null>(null);
 
   onMount(async () => {
     try {
@@ -31,6 +32,7 @@
         dokumenList = await invoke<Dokumen[]>("get_dokumen", {
           tahunAnggaranId: tahunAktif.id
         });
+        summary = await invoke<[number, number, number]>("get_dashboard_summary", { tahunAnggaranId: tahunAktif.id });
       }
     } catch (e) {
       console.error(e);
@@ -38,6 +40,12 @@
       loading = false;
     }
   });
+
+  function formatRp(n: number) {
+    if (n >= 1_000_000_000) return "Rp " + (n / 1_000_000_000).toFixed(1) + " M";
+    if (n >= 1_000_000) return "Rp " + (n / 1_000_000).toFixed(1) + " jt";
+    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
+  }
 
   const badgeClass: Record<string, string> = {
     draft: "badge-draft",
@@ -79,6 +87,35 @@
       </div>
     </div>
   </div>
+
+  {#if summary}
+  <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:28px;">
+    <div class="card" style="padding:20px;">
+      <div class="label" style="margin-bottom:12px;">Pagu vs Rincian</div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <span style="font-size:12px; color:var(--text-2);">Total Pagu</span>
+        <span style="font-size:13px; font-weight:600;">{formatRp(summary[0])}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <span style="font-size:12px; color:var(--text-2);">Total Rincian</span>
+        <span style="font-size:13px; font-weight:600; color:{summary[1] > summary[0] ? '#c00000' : 'var(--text)'};">
+          {formatRp(summary[1])}
+        </span>
+      </div>
+      <div style="background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
+        <div style="height:100%; border-radius:4px; background:{summary[1] > summary[0] ? '#c00000' : 'var(--accent)'}; width:{Math.min(summary[0] > 0 ? (summary[1]/summary[0])*100 : 0, 100)}%;"></div>
+      </div>
+      <div style="font-size:11px; color:var(--text-3); margin-top:6px; text-align:right;">
+        {summary[0] > 0 ? ((summary[1]/summary[0])*100).toFixed(1) : 0}% terisi
+      </div>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div class="label" style="margin-bottom:8px;">Sub Kegiatan ⚠️</div>
+      <div style="font-size:36px; font-weight:700; color:{summary[2] > 0 ? '#856404' : 'var(--text)'}; letter-spacing:-0.03em;">{summary[2]}</div>
+      <div style="font-size:12px; color:var(--text-3); margin-top:4px;">belum SHS Resmi</div>
+    </div>
+  </div>
+  {/if}
 
   <div class="card">
     <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border);">
