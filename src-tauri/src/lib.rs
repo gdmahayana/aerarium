@@ -350,6 +350,18 @@ fn cek_status_rincian(dokumen_id: i64) -> Result<Vec<(i64, bool)>, String> {
     rin::cek_status_rincian(&conn, dokumen_id)
 }
 
+#[tauri::command]
+fn get_shs_rencana_dipakai(dokumen_id: i64) -> Result<Vec<(i64, String, String, String, f64)>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::get_shs_rencana_dipakai(&conn, dokumen_id)
+}
+
+#[tauri::command]
+fn terapkan_pemetaan_shs(dokumen_id: i64, pemetaan: Vec<(i64, i64)>) -> Result<usize, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::terapkan_pemetaan_shs(&conn, dokumen_id, pemetaan)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     db::init_db().expect("Gagal inisialisasi database");
@@ -408,6 +420,8 @@ pub fn run() {
             update_rincian_item,
             hapus_rincian_item,
             cek_status_rincian,
+            get_shs_rencana_dipakai,
+            terapkan_pemetaan_shs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

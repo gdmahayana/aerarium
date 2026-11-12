@@ -14,7 +14,7 @@
   let submitting = $state(false);
   let error = $state("");
 
-  let jenis = $state("RKA-SKPD");
+  let jenis = $state("Kertas Kerja");
   let nomor_se = $state("");
   let tanggal_se = $state("");
   let catatan = $state("");
@@ -35,6 +35,8 @@
   const jenisDibutuhkan = $derived(jenis === "DPA-SKPD" ? "RKA-SKPD" : "RKA-SKPD Perubahan");
 
   const jenisList = [
+    { value: "Kertas Kerja", label: "Kertas Kerja" },
+    { value: "Pagu Indikatif", label: "Pagu Indikatif" },
     { value: "RKA-SKPD", label: "RKA-SKPD" },
     { value: "DPA-SKPD", label: "DPA-SKPD" },
     { value: "RKA-SKPD Perubahan", label: "RKA-SKPD Perubahan" },

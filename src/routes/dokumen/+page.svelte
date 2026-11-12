@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
 
   interface Dokumen {
     id: number;
@@ -26,12 +27,20 @@
   let loading = $state(true);
   let error = $state("");
 
-  const badgeClass: Record<string, string> = {
-    draft: "badge-draft",
-    konsep: "badge-konsep",
-    ditetapkan: "badge-ditetapkan",
-    dikunci: "badge-dikunci",
-    diarsipkan: "badge-diarsipkan",
+  const badgeColor: Record<string, string> = {
+    draft:      "#6b7280",
+    konsep:     "#2563eb",
+    ditetapkan: "#16a34a",
+    dikunci:    "#9333ea",
+    diarsipkan: "#9ca3af",
+  };
+
+  const badgeBg: Record<string, string> = {
+    draft:      "#f3f4f6",
+    konsep:     "#dbeafe",
+    ditetapkan: "#dcfce7",
+    dikunci:    "#f3e8ff",
+    diarsipkan: "#f9fafb",
   };
 
   onMount(async () => {
@@ -50,18 +59,69 @@
     }
   });
 
-  // Kelompokkan dokumen per jenis
-  const jenisList = ["RKA-SKPD", "DPA-SKPD", "RKA-SKPD Perubahan", "DPPA-SKPD"];
-  const jenisDokumenResmi = ["RKA-SKPD", "DPA-SKPD", "RKA-SKPD Perubahan", "DPPA-SKPD"];
-
-  function dokumenPerJenis(jenis: string) {
+  function byJenis(jenis: string) {
     return dokumenList.filter(d => d.jenis === jenis).sort((a, b) => b.versi - a.versi);
   }
+
+  function aktif(jenis: string) {
+    return byJenis(jenis).find(d => d.status !== "dikunci" && d.status !== "diarsipkan");
+  }
+
+  // Tahapan timeline
+  const tahapan = [
+    {
+      jenis: "Kertas Kerja",
+      icon: "📋",
+      warna: "#6366f1",
+      deskripsi: "Survei kebutuhan & estimasi harga",
+      tunggal: true,
+    },
+    {
+      jenis: "Pagu Indikatif",
+      icon: "📊",
+      warna: "#0ea5e9",
+      deskripsi: "Alokasi dari Bappeda, SHS Resmi",
+      tunggal: true,
+    },
+    {
+      jenis: "RKA-SKPD",
+      icon: "📄",
+      warna: "#10b981",
+      deskripsi: "Rencana Kerja Anggaran",
+      tunggal: false,
+    },
+    {
+      jenis: "DPA-SKPD",
+      icon: "📁",
+      warna: "#f59e0b",
+      deskripsi: "Dokumen Pelaksanaan Anggaran",
+      tunggal: true,
+    },
+    {
+      jenis: "RKA-SKPD Perubahan",
+      icon: "📄",
+      warna: "#10b981",
+      deskripsi: "Rencana Kerja Anggaran Perubahan",
+      tunggal: false,
+    },
+    {
+      jenis: "DPPA-SKPD",
+      icon: "📁",
+      warna: "#f59e0b",
+      deskripsi: "Dokumen Pelaksanaan Perubahan Anggaran",
+      tunggal: true,
+    },
+  ];
 </script>
 
 <div class="page-header">
-  <h2>Dokumen</h2>
-  <p>Kelola dokumen anggaran — RKA-SKPD, DPA-SKPD, dan perubahannya</p>
+  <div>
+    <h2>Dokumen Anggaran</h2>
+    {#if tahunAktif}
+      <p>Tahun Anggaran <strong>{tahunAktif.tahun}</strong></p>
+    {/if}
+  </div>
+  <a href="/dokumen/buat" class="btn btn-primary" style="font-size:12px;">+ Buat Dokumen</a>
 </div>
 
 {#if error}
@@ -76,72 +136,110 @@
     <a href="/tahun-anggaran" class="btn btn-primary">Atur Tahun Anggaran</a>
   </div>
 {:else}
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
-    <div style="font-size:13px; color:var(--text-2);">
-      Tahun Anggaran: <span style="font-weight:700; color:var(--text);">{tahunAktif.tahun}</span>
-    </div>
-    <a href="/dokumen/buat" class="btn btn-primary">+ Buat Dokumen</a>
-  </div>
+  <div style="display:flex; flex-direction:column; gap:0;">
+    {#each tahapan as tahap, idx}
+      {@const doks = byJenis(tahap.jenis)}
+      {@const ada = doks.length > 0}
 
-  {#if dokumenList.length === 0}
-    <div class="card" style="padding:48px; text-align:center;">
-      <p style="font-size:13px; color:var(--text-3); margin-bottom:16px;">Belum ada dokumen.</p>
-      <a href="/dokumen/buat" class="btn btn-secondary">Buat Dokumen Pertama</a>
-    </div>
-  {:else}
-    <!-- Kertas Kerja -->
-    {#if dokumenPerJenis("Kertas Kerja").length > 0}
-      <div class="card" style="margin-bottom:16px; border-left:3px solid var(--accent);">
-        <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <span class="label">Kertas Kerja</span>
-            <span style="font-size:11px; color:var(--text-3); margin-left:8px;">— dokumen persiapan internal</span>
-          </div>
+      <!-- Koneksi antar tahap -->
+      {#if idx > 0}
+        <div style="display:flex; align-items:center; padding:0 28px; height:28px;">
+          <div style="width:2px; height:100%; background:var(--border); margin-left:19px;"></div>
+          {#if idx === 2}
+            <span style="font-size:10px; color:var(--text-3); margin-left:12px;">Jadikan RKA →</span>
+          {:else if idx === 3}
+            <span style="font-size:10px; color:var(--text-3); margin-left:12px;">Jadikan DPA →</span>
+          {:else if idx === 5}
+            <span style="font-size:10px; color:var(--text-3); margin-left:12px;">Jadikan DPPA →</span>
+          {/if}
         </div>
-        {#each dokumenPerJenis("Kertas Kerja") as dok, i}
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 20px; {i < dokumenPerJenis("Kertas Kerja").length - 1 ? "border-bottom:1px solid var(--border);" : ""}">
-            <div>
-              <span style="font-size:13px; font-weight:600; color:var(--text);">v{dok.versi}</span>
-              {#if dok.catatan}
-                <div style="font-size:11px; color:var(--text-3); margin-top:2px;">{dok.catatan}</div>
-              {/if}
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span class="badge {badgeClass[dok.status] || 'badge-draft'}">{dok.status}</span>
-              <a href="/dokumen/{dok.id}" class="btn btn-ghost" style="font-size:12px;">Buka →</a>
-            </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
+      {/if}
 
-    <div style="display:flex; flex-direction:column; gap:16px;">
-      {#each jenisList as jenis}
-        {#if dokumenPerJenis(jenis).length > 0}
-          <div class="card">
-            <div style="padding:14px 20px; border-bottom:1px solid var(--border);">
-              <span class="label">{jenis}</span>
-            </div>
-            {#each dokumenPerJenis(jenis) as dok, i}
-              <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 20px; {i < dokumenPerJenis(jenis).length - 1 ? 'border-bottom:1px solid var(--border);' : ''}">
-                <div>
-                  <span style="font-size:13px; font-weight:600; color:var(--text);">v{dok.versi}</span>
-                  {#if dok.nomor_se}
-                    <span style="font-size:12px; color:var(--text-3); margin-left:8px;">SE: {dok.nomor_se}</span>
-                  {/if}
-                  {#if dok.catatan}
-                    <div style="font-size:11px; color:var(--text-3); margin-top:2px;">{dok.catatan}</div>
-                  {/if}
-                </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="badge {badgeClass[dok.status] || 'badge-draft'}">{dok.status}</span>
-                  <a href="/dokumen/{dok.id}" class="btn btn-ghost" style="font-size:12px;">Buka →</a>
-                </div>
-              </div>
-            {/each}
+      <!-- Kartu tahap -->
+      <div style="display:flex; gap:16px; align-items:start;">
+        <!-- Ikon bulat -->
+        <div style="
+          width:40px; height:40px; border-radius:50%; flex-shrink:0;
+          background:{ada ? tahap.warna : 'var(--surface-2)'};
+          border:2px solid {ada ? tahap.warna : 'var(--border)'};
+          display:flex; align-items:center; justify-content:center;
+          font-size:16px; margin-top:2px;
+        ">{tahap.icon}</div>
+
+        <!-- Konten -->
+        <div style="flex:1;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-size:13px; font-weight:700; color:{ada ? 'var(--text)' : 'var(--text-3)'};">
+              {tahap.jenis}
+            </span>
+            <span style="font-size:11px; color:var(--text-3);">{tahap.deskripsi}</span>
+            {#if !ada}
+              <span style="font-size:11px; color:var(--text-3); margin-left:auto;">— belum dibuat</span>
+            {/if}
           </div>
-        {/if}
-      {/each}
-    </div>
-  {/if}
+
+          {#if ada}
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              {#each doks as dok}
+                <div class="card" style="
+                  padding:12px 16px;
+                  display:flex; align-items:center; justify-content:space-between;
+                  border-left:3px solid {tahap.warna};
+                  cursor:pointer;
+                " onclick={() => goto('/dokumen/' + dok.id)}>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <!-- Badge versi -->
+                    <span style="
+                      font-size:11px; font-weight:700; font-family:monospace;
+                      color:{tahap.warna}; min-width:28px;
+                    ">v{dok.versi}</span>
+
+                    <div>
+                      {#if dok.nomor_se}
+                        <div style="font-size:12px; font-weight:600; color:var(--text);">SE: {dok.nomor_se}</div>
+                      {:else}
+                        <div style="font-size:12px; color:var(--text-3);">Tanpa nomor SE</div>
+                      {/if}
+                      {#if dok.catatan}
+                        <div style="font-size:11px; color:var(--text-3); margin-top:1px;">{dok.catatan}</div>
+                      {/if}
+                      {#if dok.tanggal_se}
+                        <div style="font-size:11px; color:var(--text-3);">📅 {dok.tanggal_se}</div>
+                      {/if}
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <!-- Badge status -->
+                    <span style="
+                      font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px;
+                      background:{badgeBg[dok.status] || '#f3f4f6'};
+                      color:{badgeColor[dok.status] || '#6b7280'};
+                    ">{dok.status}</span>
+
+                    <button
+                      class="btn btn-ghost"
+                      style="font-size:12px;"
+                      onclick={(e) => { e.stopPropagation(); goto('/dokumen/' + dok.id); }}
+                    >Buka →</button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else if tahap.tunggal}
+            <!-- Placeholder buat baru -->
+            <a
+              href="/dokumen/buat"
+              style="
+                display:inline-flex; align-items:center; gap:6px;
+                font-size:12px; color:var(--text-3); padding:8px 12px;
+                border:1px dashed var(--border); border-radius:6px;
+                text-decoration:none;
+              "
+            >+ Buat {tahap.jenis}</a>
+          {/if}
+        </div>
+      </div>
+    {/each}
+  </div>
 {/if}

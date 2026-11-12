@@ -305,3 +305,61 @@ pub fn cek_status_rincian(conn: &Connection, dokumen_id: i64) -> Result<Vec<(i64
 
     Ok(rows)
 }
+
+pub fn get_shs_rencana_dipakai(conn: &Connection, dokumen_id: i64) -> Result<Vec<(i64, String, String, String, f64)>, String> {
+    // Return: (shs_id, jenis, kode, uraian, harga)
+    let mut stmt = conn.prepare("
+        SELECT DISTINCT s.id, s.jenis, s.kode, s.uraian, s.harga
+        FROM rincian_item ri
+        JOIN shs s ON s.id = ri.shs_id
+        JOIN rincian_keterangan rk ON rk.id = ri.rincian_keterangan_id
+        JOIN rincian_pengelompokan rp ON rp.id = rk.rincian_pengelompokan_id
+        JOIN rincian_rekening rrek ON rrek.id = rp.rincian_rekening_id
+        JOIN dokumen_sub_kegiatan dsk ON dsk.id = rrek.dokumen_sub_kegiatan_id
+        WHERE dsk.dokumen_id = ?1 AND s.sumber = 'rencana'
+        ORDER BY s.jenis, s.kode
+    ").map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map(rusqlite::params![dokumen_id], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    Ok(rows)
+}
+
+pub fn terapkan_pemetaan_shs(
+    conn: &Connection,
+    dokumen_id: i64,
+    pemetaan: Vec<(i64, i64)>, // (shs_rencana_id, shs_resmi_id)
+) -> Result<usize, String> {
+    let mut total_updated = 0;
+
+    for (rencana_id, resmi_id) in &pemetaan {
+        // Ambil harga SHS resmi
+        let harga_resmi: f64 = conn.query_row(
+            "SELECT harga FROM shs WHERE id = ?1 AND sumber = 'resmi'",
+            rusqlite::params![resmi_id],
+            |row| row.get(0),
+        ).map_err(|e| format!("SHS resmi id={} tidak ditemukan: {}", resmi_id, e))?;
+
+        // Update semua rincian_item di dokumen ini yang pakai shs_rencana_id
+        let n = conn.execute("
+            UPDATE rincian_item SET shs_id = ?1, harga = ?2
+            WHERE shs_id = ?3
+              AND rincian_keterangan_id IN (
+                SELECT rk.id FROM rincian_keterangan rk
+                JOIN rincian_pengelompokan rp ON rp.id = rk.rincian_pengelompokan_id
+                JOIN rincian_rekening rrek ON rrek.id = rp.rincian_rekening_id
+                JOIN dokumen_sub_kegiatan dsk ON dsk.id = rrek.dokumen_sub_kegiatan_id
+                WHERE dsk.dokumen_id = ?4
+              )
+        ", rusqlite::params![resmi_id, harga_resmi, rencana_id, dokumen_id])
+        .map_err(|e| e.to_string())?;
+
+        total_updated += n;
+    }
+
+    Ok(total_updated)
+}

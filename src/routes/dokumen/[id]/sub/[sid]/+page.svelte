@@ -95,7 +95,9 @@
   let koefCount = $state(1);
   let shsList = $state<ShsItem[]>([]);
   let cariShs = $state("");
+  let sumberShs = $state<"rencana"|"resmi">("rencana");
   let showShsResults = $state(false);
+  let selectedShsId = $state<number | null>(null);
   let tahunAktifId = $state(0);
   let fItem = $state({
     uraian: "", spesifikasi: "",
@@ -186,7 +188,7 @@
 
   let shsFiltered = $derived(
     cariShs.length < 2 ? [] :
-    shsList.filter(s =>
+    shsList.filter(s => s.sumber === sumberShs).filter(s =>
       s.uraian.toLowerCase().includes(cariShs.toLowerCase()) ||
       s.kode.toLowerCase().includes(cariShs.toLowerCase()) ||
       (s.spesifikasi && s.spesifikasi.toLowerCase().includes(cariShs.toLowerCase()))
@@ -199,6 +201,7 @@
     fItem.satuan = shs.satuan;
     fItem.harga = String(shs.harga);
     cariShs = shs.uraian;
+    selectedShsId = shs.id;
     showShsResults = false;
     // Auto-suggest rekening
     if (shs.kode_rekening && !fRekKode) {
@@ -242,6 +245,8 @@
     koefCount = 1;
     cariShs = "";
     showShsResults = false;
+    selectedShsId = null;
+    sumberShs = "rencana";
     fItem = { uraian: "", spesifikasi: "", volume: "1", satuan: "", koef2: "", satuan2: "", koef3: "", satuan3: "", koef4: "", satuan4: "", harga: "", ppn: false };
     showModalItem = true;
   }
@@ -253,7 +258,7 @@
       await invoke("tambah_rincian_item", {
         input: {
           rincian_keterangan_id: activeKetId,
-          shs_id: null,
+          shs_id: selectedShsId,
           uraian: fItem.uraian,
           spesifikasi: fItem.spesifikasi || null,
           volume: parseFloat(fItem.volume) || 1,
@@ -355,7 +360,19 @@
       <div style="display:flex; flex-direction:column; gap:14px;">
         <!-- Search SHS -->
         <div style="position:relative;">
-          <div class="label" style="margin-bottom:6px;">Cari dari Database SHS <span style="font-size:11px; color:var(--text-3); font-weight:400;">(opsional)</span></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span class="label">Cari dari Database SHS <span style="font-size:11px; color:var(--text-3); font-weight:400;">(opsional)</span></span>
+            <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden; font-size:11px;">
+              <button
+                style="padding:4px 10px; background:{sumberShs === 'rencana' ? 'var(--accent)' : 'transparent'}; color:{sumberShs === 'rencana' ? 'white' : 'var(--text-3)'}; border:none; cursor:pointer;"
+                onclick={() => { sumberShs = 'rencana'; cariShs = ''; selectedShsId = null; }}
+              >Rencana</button>
+              <button
+                style="padding:4px 10px; background:{sumberShs === 'resmi' ? 'var(--accent)' : 'transparent'}; color:{sumberShs === 'resmi' ? 'white' : 'var(--text-3)'}; border:none; cursor:pointer;"
+                onclick={() => { sumberShs = 'resmi'; cariShs = ''; selectedShsId = null; }}
+              >Resmi</button>
+            </div>
+          </div>
           <input
             class="input"
             bind:value={cariShs}
@@ -382,6 +399,7 @@
                     {/if}
                     <span style="font-size:11px; color:var(--text-3);">— {shs.satuan}</span>
                     <span style="font-size:11px; color:var(--text-3); font-family:monospace;">{shs.jenis}</span>
+                    <span style="font-size:10px; padding:1px 5px; border-radius:3px; background:{shs.sumber === "rencana" ? "#fff3cd" : "#d1e7dd"}; color:{shs.sumber === "rencana" ? "#856404" : "#0a3622"}; margin-left:4px;">{shs.sumber}</span>
                   </div>
                 </button>
               {/each}

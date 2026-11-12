@@ -69,6 +69,8 @@ pub fn buat(conn: &Connection, input: BuatDokumenInput) -> Result<i64, String> {
                 }
             }
         }
+        JenisDokumen::KertasKerja => {}
+        JenisDokumen::PaguIndikatif => {}
         JenisDokumen::RkaSkpdPerubahan => {}
         JenisDokumen::RkaSkpd => {}
     }

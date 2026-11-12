@@ -272,7 +272,8 @@
     >
       {exporting ? "Mengekspor..." : "⬇ Export Excel"}
     </button>
-    {#if dokumen.jenis === "Kertas Kerja" && (dokumen.status === "draft" || dokumen.status === "konsep")}
+    <a href="/dokumen/{dokumenId}/petakan" class="btn btn-ghost" style="font-size:12px;">🔄 Petakan SHS</a>
+    {#if dokumen.jenis === "Pagu Indikatif" && (dokumen.status === "draft" || dokumen.status === "konsep")}
       <button
         onclick={jadikanRka}
         class="btn btn-primary"

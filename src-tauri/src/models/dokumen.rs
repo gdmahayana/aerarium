@@ -17,8 +17,11 @@ pub struct Dokumen {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "kebab-case")]
 pub enum JenisDokumen {
+    #[serde(rename = "Kertas Kerja")]
+    KertasKerja,
+    #[serde(rename = "Pagu Indikatif")]
+    PaguIndikatif,
     #[serde(rename = "RKA-SKPD")]
     RkaSkpd,
     #[serde(rename = "DPA-SKPD")]
@@ -32,6 +35,8 @@ pub enum JenisDokumen {
 impl JenisDokumen {
     pub fn as_str(&self) -> &str {
         match self {
+            JenisDokumen::KertasKerja => "Kertas Kerja",
+            JenisDokumen::PaguIndikatif => "Pagu Indikatif",
             JenisDokumen::RkaSkpd => "RKA-SKPD",
             JenisDokumen::DpaSkpd => "DPA-SKPD",
             JenisDokumen::RkaSkpdPerubahan => "RKA-SKPD Perubahan",
@@ -41,6 +46,8 @@ impl JenisDokumen {
 
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
+            "Kertas Kerja" => Some(JenisDokumen::KertasKerja),
+            "Pagu Indikatif" => Some(JenisDokumen::PaguIndikatif),
             "RKA-SKPD" => Some(JenisDokumen::RkaSkpd),
             "DPA-SKPD" => Some(JenisDokumen::DpaSkpd),
             "RKA-SKPD Perubahan" => Some(JenisDokumen::RkaSkpdPerubahan),
