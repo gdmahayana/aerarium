@@ -116,6 +116,24 @@ fn jadikan_rka(kertas_kerja_id: i64) -> Result<i64, String> {
 }
 
 #[tauri::command]
+fn jadikan_dpa(rka_id: i64) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    dok::jadikan_dpa(&conn, rka_id)
+}
+
+#[tauri::command]
+fn jadikan_dppa(rkap_id: i64) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    dok::jadikan_dppa(&conn, rkap_id)
+}
+
+#[tauri::command]
+fn buat_pergeseran(dokumen_id: i64) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    dok::buat_pergeseran(&conn, dokumen_id)
+}
+
+#[tauri::command]
 fn get_dashboard_summary(tahun_anggaran_id: i64) -> Result<(f64, f64, i64), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     dok::get_dashboard_summary(&conn, tahun_anggaran_id)
@@ -385,6 +403,9 @@ pub fn run() {
             buat_dokumen,
             tetapkan_dokumen,
             jadikan_rka,
+            jadikan_dpa,
+            jadikan_dppa,
+            buat_pergeseran,
             get_dashboard_summary,
             cari_atau_buat_rekening,
             get_master_program,

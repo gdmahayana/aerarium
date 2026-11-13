@@ -224,6 +224,30 @@
     } catch(e) { error = String(e); }
   }
 
+  async function jadikanDpa() {
+    if (!confirm('Jadikan RKA-SKPD ini sebagai DPA-SKPD? Semua rincian akan disalin.')) return;
+    try {
+      const id = await invoke<number>('jadikan_dpa', { rkaId: dokumenId });
+      goto('/dokumen/' + id);
+    } catch(e) { error = String(e); }
+  }
+
+  async function jadikanDppa() {
+    if (!confirm('Jadikan RKA-SKPD Perubahan ini sebagai DPPA-SKPD? Semua rincian akan disalin.')) return;
+    try {
+      const id = await invoke<number>('jadikan_dppa', { rkapId: dokumenId });
+      goto('/dokumen/' + id);
+    } catch(e) { error = String(e); }
+  }
+
+  async function buatPergeseran() {
+    if (!confirm('Buat versi revisi baru? Dokumen ini akan dikunci dan rinciannya disalin ke versi baru.')) return;
+    try {
+      const id = await invoke<number>('buat_pergeseran', { dokumenId });
+      goto('/dokumen/' + id);
+    } catch(e) { error = String(e); }
+  }
+
   async function exportExcel() {
     if (!dokumen) return;
     try {

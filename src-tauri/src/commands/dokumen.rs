@@ -389,3 +389,239 @@ pub fn get_dashboard_summary(conn: &Connection, tahun_anggaran_id: i64) -> Resul
 
     Ok((total_pagu, total_rincian, sub_warning))
 }
+
+fn salin_rincian(conn: &Connection, dari_dokumen_id: i64, ke_dokumen_id: i64) -> Result<(), String> {
+    // Ambil semua sub kegiatan dari dokumen asal
+    let dsk_list: Vec<(i64, i64, f64, Option<i64>, Option<String>, Option<String>, Option<String>, Option<String>)> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, master_sub_kegiatan_id, pagu, sumber_dana_id,
+                    lokasi, waktu_pelaksanaan, keluaran, target_keluaran
+             FROM dokumen_sub_kegiatan WHERE dokumen_id = ?1"
+        ).map_err(|e| e.to_string())?;
+        stmt.query_map(rusqlite::params![dari_dokumen_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
+                row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?))
+        }).map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok()).collect()
+    };
+
+    for (old_dsk_id, msk_id, pagu, sd_id, lokasi, waktu, keluaran, target) in &dsk_list {
+        conn.execute(
+            "INSERT INTO dokumen_sub_kegiatan
+                (dokumen_id, master_sub_kegiatan_id, pagu, sumber_dana_id,
+                 lokasi, waktu_pelaksanaan, keluaran, target_keluaran)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+            rusqlite::params![ke_dokumen_id, msk_id, pagu, sd_id, lokasi, waktu, keluaran, target],
+        ).map_err(|e| e.to_string())?;
+        let new_dsk_id = conn.last_insert_rowid();
+
+        let rek_list: Vec<(i64, i64, i64)> = {
+            let mut stmt = conn.prepare(
+                "SELECT id, rekening_id, urutan FROM rincian_rekening WHERE dokumen_sub_kegiatan_id = ?1"
+            ).map_err(|e| e.to_string())?;
+            stmt.query_map(rusqlite::params![old_dsk_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            }).map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok()).collect()
+        };
+
+        for (old_rek_id, rek_id, rek_urutan) in &rek_list {
+            conn.execute(
+                "INSERT INTO rincian_rekening (dokumen_sub_kegiatan_id, rekening_id, urutan)
+                 VALUES (?1,?2,?3)",
+                rusqlite::params![new_dsk_id, rek_id, rek_urutan],
+            ).map_err(|e| e.to_string())?;
+            let new_rek_id = conn.last_insert_rowid();
+
+            let pg_list: Vec<(i64, String, String, Option<i64>, i64)> = {
+                let mut stmt = conn.prepare(
+                    "SELECT id, label, jenis, sumber_dana_id, urutan
+                     FROM rincian_pengelompokan WHERE rincian_rekening_id = ?1"
+                ).map_err(|e| e.to_string())?;
+                stmt.query_map(rusqlite::params![old_rek_id], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                }).map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok()).collect()
+            };
+
+            for (old_pg_id, pg_label, pg_jenis, pg_sd, pg_urutan) in &pg_list {
+                conn.execute(
+                    "INSERT INTO rincian_pengelompokan
+                        (rincian_rekening_id, label, jenis, sumber_dana_id, urutan)
+                     VALUES (?1,?2,?3,?4,?5)",
+                    rusqlite::params![new_rek_id, pg_label, pg_jenis, pg_sd, pg_urutan],
+                ).map_err(|e| e.to_string())?;
+                let new_pg_id = conn.last_insert_rowid();
+
+                let ket_list: Vec<(i64, String, i64)> = {
+                    let mut stmt = conn.prepare(
+                        "SELECT id, label, urutan FROM rincian_keterangan WHERE rincian_pengelompokan_id = ?1"
+                    ).map_err(|e| e.to_string())?;
+                    stmt.query_map(rusqlite::params![old_pg_id], |row| {
+                        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                    }).map_err(|e| e.to_string())?
+                    .filter_map(|r| r.ok()).collect()
+                };
+
+                for (old_ket_id, ket_label, ket_urutan) in &ket_list {
+                    conn.execute(
+                        "INSERT INTO rincian_keterangan (rincian_pengelompokan_id, label, urutan)
+                         VALUES (?1,?2,?3)",
+                        rusqlite::params![new_pg_id, ket_label, ket_urutan],
+                    ).map_err(|e| e.to_string())?;
+                    let new_ket_id = conn.last_insert_rowid();
+
+                    let mut stmt = conn.prepare(
+                        "SELECT shs_id, uraian, spesifikasi, volume, satuan,
+                                koef2, satuan2, koef3, satuan3, koef4, satuan4,
+                                harga, ppn, urutan
+                         FROM rincian_item WHERE rincian_keterangan_id = ?1"
+                    ).map_err(|e| e.to_string())?;
+                    let items: Vec<(Option<i64>,String,Option<String>,f64,String,
+                                   Option<f64>,Option<String>,Option<f64>,Option<String>,
+                                   Option<f64>,Option<String>,f64,f64,i64)> =
+                        stmt.query_map(rusqlite::params![old_ket_id], |row| {
+                            Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?,
+                                row.get(5)?,row.get(6)?,row.get(7)?,row.get(8)?,
+                                row.get(9)?,row.get(10)?,row.get(11)?,row.get(12)?,row.get(13)?))
+                        }).map_err(|e| e.to_string())?
+                        .filter_map(|r| r.ok()).collect();
+
+                    for (shs_id,uraian,spesifikasi,volume,satuan,
+                         koef2,satuan2,koef3,satuan3,koef4,satuan4,
+                         harga,ppn,urutan) in items {
+                        conn.execute(
+                            "INSERT INTO rincian_item
+                                (rincian_keterangan_id, shs_id, uraian, spesifikasi,
+                                 volume, satuan, koef2, satuan2, koef3, satuan3,
+                                 koef4, satuan4, harga, ppn, urutan)
+                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+                            rusqlite::params![new_ket_id,shs_id,uraian,spesifikasi,
+                                volume,satuan,koef2,satuan2,koef3,satuan3,
+                                koef4,satuan4,harga,ppn,urutan],
+                        ).map_err(|e| e.to_string())?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn jadikan_dpa(conn: &Connection, rka_id: i64) -> Result<i64, String> {
+    let asal = get_by_id(conn, rka_id)?;
+    if asal.jenis.as_str() != "RKA-SKPD" {
+        return Err("Hanya RKA-SKPD yang bisa dijadikan DPA-SKPD".to_string());
+    }
+    if asal.status != StatusDokumen::Ditetapkan && asal.status != StatusDokumen::Konsep {
+        return Err("RKA-SKPD harus berstatus konsep atau ditetapkan".to_string());
+    }
+    // Cek DPA sudah ada
+    let sudah_ada: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM dokumen WHERE tahun_anggaran_id = ?1 AND jenis = 'DPA-SKPD'",
+        rusqlite::params![asal.tahun_anggaran_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    if sudah_ada > 0 {
+        return Err("DPA-SKPD sudah ada untuk tahun anggaran ini".to_string());
+    }
+
+    conn.execute(
+        "INSERT INTO dokumen (tahun_anggaran_id, jenis, versi, asal_id, asal_keterangan, status)
+         VALUES (?1, 'DPA-SKPD', 1, ?2, 'Dari RKA-SKPD', 'draft')",
+        rusqlite::params![asal.tahun_anggaran_id, rka_id],
+    ).map_err(|e| e.to_string())?;
+    let dpa_id = conn.last_insert_rowid();
+
+    salin_rincian(conn, rka_id, dpa_id)?;
+
+    conn.execute(
+        "INSERT INTO jejak_rekam (dokumen_id, entitas, entitas_id, aksi, pesan)
+         VALUES (?1, 'dokumen', ?1, 'jadikan_dpa', ?2)",
+        rusqlite::params![dpa_id, format!("Dibuat dari RKA-SKPD id={}", rka_id)],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(dpa_id)
+}
+
+pub fn jadikan_dppa(conn: &Connection, rkap_id: i64) -> Result<i64, String> {
+    let asal = get_by_id(conn, rkap_id)?;
+    if asal.jenis.as_str() != "RKA-SKPD Perubahan" {
+        return Err("Hanya RKA-SKPD Perubahan yang bisa dijadikan DPPA-SKPD".to_string());
+    }
+    if asal.status != StatusDokumen::Ditetapkan && asal.status != StatusDokumen::Konsep {
+        return Err("RKA-SKPD Perubahan harus berstatus konsep atau ditetapkan".to_string());
+    }
+    let sudah_ada: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM dokumen WHERE tahun_anggaran_id = ?1 AND jenis = 'DPPA-SKPD'",
+        rusqlite::params![asal.tahun_anggaran_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    if sudah_ada > 0 {
+        return Err("DPPA-SKPD sudah ada untuk tahun anggaran ini".to_string());
+    }
+
+    conn.execute(
+        "INSERT INTO dokumen (tahun_anggaran_id, jenis, versi, asal_id, asal_keterangan, status)
+         VALUES (?1, 'DPPA-SKPD', 1, ?2, 'Dari RKA-SKPD Perubahan', 'draft')",
+        rusqlite::params![asal.tahun_anggaran_id, rkap_id],
+    ).map_err(|e| e.to_string())?;
+    let dppa_id = conn.last_insert_rowid();
+
+    salin_rincian(conn, rkap_id, dppa_id)?;
+
+    conn.execute(
+        "INSERT INTO jejak_rekam (dokumen_id, entitas, entitas_id, aksi, pesan)
+         VALUES (?1, 'dokumen', ?1, 'jadikan_dppa', ?2)",
+        rusqlite::params![dppa_id, format!("Dibuat dari RKA-SKPD Perubahan id={}", rkap_id)],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(dppa_id)
+}
+
+pub fn buat_pergeseran(conn: &Connection, dokumen_id: i64) -> Result<i64, String> {
+    let asal = get_by_id(conn, dokumen_id)?;
+    let jenis_valid = asal.jenis.as_str() == "RKA-SKPD" ||
+                      asal.jenis.as_str() == "RKA-SKPD Perubahan" ||
+                      asal.jenis.as_str() == "Pagu Indikatif";
+    if !jenis_valid {
+        return Err(format!("{} tidak mendukung pergeseran/revisi", asal.jenis.as_str()));
+    }
+
+    // Kunci versi lama
+    conn.execute(
+        "UPDATE dokumen SET status = 'dikunci' WHERE id = ?1",
+        rusqlite::params![dokumen_id],
+    ).map_err(|e| e.to_string())?;
+
+    // Versi berikutnya
+    let versi_baru: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(versi), 0) + 1 FROM dokumen
+         WHERE tahun_anggaran_id = ?1 AND jenis = ?2",
+        rusqlite::params![asal.tahun_anggaran_id, asal.jenis.as_str()],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO dokumen (tahun_anggaran_id, jenis, versi, asal_id, asal_keterangan, status)
+         VALUES (?1, ?2, ?3, ?4, ?5, 'draft')",
+        rusqlite::params![
+            asal.tahun_anggaran_id,
+            asal.jenis.as_str(),
+            versi_baru,
+            dokumen_id,
+            format!("Revisi dari v{}", asal.versi),
+        ],
+    ).map_err(|e| e.to_string())?;
+    let baru_id = conn.last_insert_rowid();
+
+    salin_rincian(conn, dokumen_id, baru_id)?;
+
+    conn.execute(
+        "INSERT INTO jejak_rekam (dokumen_id, entitas, entitas_id, aksi, pesan)
+         VALUES (?1, 'dokumen', ?1, 'pergeseran', ?2)",
+        rusqlite::params![baru_id, format!("Revisi dari v{} id={}", asal.versi, dokumen_id)],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(baru_id)
+}
