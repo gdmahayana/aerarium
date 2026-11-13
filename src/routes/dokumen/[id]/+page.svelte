@@ -31,6 +31,7 @@
     waktu_pelaksanaan: string | null;
     keluaran: string | null;
     target_keluaran: string | null;
+    bebas_shs: boolean;
   }
   interface SumberDana { id: number; kode: string; nama: string; }
 
@@ -224,6 +225,14 @@
     } catch(e) { error = String(e); }
   }
 
+
+  async function toggleBebasShs(id: number) {
+    try {
+      await invoke('toggle_bebas_shs', { id });
+      dskList = await invoke('get_dokumen_sub_kegiatan', { dokumenId });
+      await muatStatus();
+    } catch(e) { error = String(e); }
+  }
   async function jadikanDpa() {
     if (!confirm('Jadikan RKA-SKPD ini sebagai DPA-SKPD? Semua rincian akan disalin.')) return;
     try {
@@ -499,7 +508,7 @@
   {:else}
     <div style="display:flex; flex-direction:column; gap:8px;">
       {#each dskList as dsk}
-        {@const warning = statusRincian[dsk.id]}
+        {@const warning = statusRincian[dsk.id] && !dsk.bebas_shs}
         <div class="card" style="overflow:hidden; border-left:3px solid {warning ? '#fbbf24' : cfg.warna}22;">
 
           <!-- Baris utama -->
@@ -511,10 +520,10 @@
                 <span style="font-size:10px; font-family:monospace; color:var(--text-3); background:var(--surface-2); padding:1px 6px; border-radius:3px;">
                   {kodeSubKegiatan(dsk.master_sub_kegiatan_id)}
                 </span>
-                {#if warning}
-                  <span style="font-size:10px; background:#2d1f00; color:#fbbf24; border:1px solid #4a3200; border-radius:3px; padding:1px 6px;">
-                    ⚠ Belum Resmi
-                  </span>
+{#if dsk.bebas_shs}
+                  <span style="font-size:10px; background:#052e16; color:#4ade80; border:1px solid #14532d; border-radius:3px; padding:1px 6px;">✓ Bebas SHS</span>
+                {:else if warning}
+                  <span style="font-size:10px; background:#2d1f00; color:#fbbf24; border:1px solid #4a3200; border-radius:3px; padding:1px 6px;">⚠ Belum Resmi</span>
                 {/if}
               </div>
 
@@ -548,6 +557,7 @@
 
             <!-- Tombol aksi -->
             <div style="display:flex; gap:6px; flex-shrink:0;">
+              <button onclick={() => toggleBebasShs(dsk.id)} style="font-size:11px; padding:3px 8px; border-radius:4px; cursor:pointer; border:1px solid {dsk.bebas_shs ? '#14532d' : 'var(--border)'}; background:{dsk.bebas_shs ? '#052e16' : 'transparent'}; color:{dsk.bebas_shs ? '#4ade80' : 'var(--text-3)'}; font-family:inherit;" title={dsk.bebas_shs ? 'Nonaktifkan Bebas SHS' : 'Aktifkan untuk Gaji ASN dll'}>{dsk.bebas_shs ? '✓ Bebas SHS' : 'Bebas SHS'}</button>
               <button onclick={() => bukaEdit(dsk)} class="btn btn-ghost" style="font-size:12px;">Edit</button>
               <button onclick={() => goto("/dokumen/" + dokumenId + "/sub/" + dsk.id)} class="btn btn-primary" style="font-size:12px; background:{cfg.warna}; border-color:{cfg.warna};">Rincian →</button>
               <button onclick={() => hapus(dsk.id)} class="btn btn-ghost" style="font-size:12px; color:var(--text-3);">✕</button>

@@ -163,7 +163,7 @@ pub fn hapus_master_sub_kegiatan(conn: &Connection, id: i64) -> Result<(), Strin
 
 pub fn get_dokumen_sub_kegiatan(conn: &Connection, dokumen_id: i64) -> Result<Vec<DokumenSubKegiatan>, String> {
     let mut stmt = conn.prepare(
-        "SELECT id, dokumen_id, master_sub_kegiatan_id, pagu, sumber_dana_id, lokasi, waktu_pelaksanaan, keluaran, target_keluaran, created_at
+        "SELECT id, dokumen_id, master_sub_kegiatan_id, pagu, sumber_dana_id, lokasi, waktu_pelaksanaan, keluaran, target_keluaran, bebas_shs, created_at
          FROM dokumen_sub_kegiatan WHERE dokumen_id = ?1 ORDER BY id"
     ).map_err(|e| e.to_string())?;
     let rows = stmt.query_map(params![dokumen_id], |row| {
@@ -177,7 +177,8 @@ pub fn get_dokumen_sub_kegiatan(conn: &Connection, dokumen_id: i64) -> Result<Ve
             waktu_pelaksanaan: row.get(6)?,
             keluaran: row.get(7)?,
             target_keluaran: row.get(8)?,
-            created_at: row.get(9)?,
+            bebas_shs: row.get::<_, i64>(9)? != 0,
+            created_at: row.get(10)?,
         })
     }).map_err(|e| e.to_string())?;
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
@@ -186,8 +187,8 @@ pub fn get_dokumen_sub_kegiatan(conn: &Connection, dokumen_id: i64) -> Result<Ve
 pub fn tambah_dokumen_sub_kegiatan(conn: &Connection, input: TambahDokumenSubKegiatanInput) -> Result<i64, String> {
     conn.execute(
         "INSERT INTO dokumen_sub_kegiatan
-            (dokumen_id, master_sub_kegiatan_id, pagu, sumber_dana_id, lokasi, waktu_pelaksanaan, keluaran, target_keluaran)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            (dokumen_id, master_sub_kegiatan_id, pagu, sumber_dana_id, lokasi, waktu_pelaksanaan, keluaran, target_keluaran, bebas_shs)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             input.dokumen_id,
             input.master_sub_kegiatan_id,
@@ -197,6 +198,7 @@ pub fn tambah_dokumen_sub_kegiatan(conn: &Connection, input: TambahDokumenSubKeg
             input.waktu_pelaksanaan,
             input.keluaran,
             input.target_keluaran,
+            input.bebas_shs.unwrap_or(false) as i64,
         ],
     ).map_err(|e| e.to_string())?;
     Ok(conn.last_insert_rowid())

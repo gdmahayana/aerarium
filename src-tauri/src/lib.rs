@@ -267,6 +267,16 @@ fn hapus_dokumen_sub_kegiatan(id: i64) -> Result<(), String> {
     keg::hapus_dokumen_sub_kegiatan(&conn, id)
 }
 
+#[tauri::command]
+fn toggle_bebas_shs(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE dokumen_sub_kegiatan SET bebas_shs = CASE WHEN bebas_shs = 1 THEN 0 ELSE 1 END WHERE id = ?1",
+        rusqlite::params![id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // Sumber Dana
 #[tauri::command]
 fn get_sumber_dana(tahun_anggaran_id: i64) -> Result<Vec<models::rincian::SumberDana>, String> {
@@ -425,6 +435,7 @@ pub fn run() {
             tambah_dokumen_sub_kegiatan,
             update_dokumen_sub_kegiatan,
             hapus_dokumen_sub_kegiatan,
+            toggle_bebas_shs,
             get_sumber_dana,
             tambah_sumber_dana,
             get_rincian_rekening,

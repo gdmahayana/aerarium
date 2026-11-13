@@ -293,7 +293,7 @@ pub fn cek_status_rincian(conn: &Connection, dokumen_id: i64) -> Result<Vec<(i64
         LEFT JOIN rincian_keterangan rk ON rk.rincian_pengelompokan_id = rp.id
         LEFT JOIN rincian_item ri ON ri.rincian_keterangan_id = rk.id
         LEFT JOIN shs s ON s.id = ri.shs_id
-        WHERE dsk.dokumen_id = ?1
+        WHERE dsk.dokumen_id = ?1 AND dsk.bebas_shs = 0
         GROUP BY dsk.id
     ").map_err(|e| e.to_string())?;
 

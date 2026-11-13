@@ -76,6 +76,7 @@ pub struct DokumenSubKegiatan {
     pub waktu_pelaksanaan: Option<String>,
     pub keluaran: Option<String>,
     pub target_keluaran: Option<String>,
+    pub bebas_shs: bool,
     pub created_at: String,
 }
 
@@ -89,4 +90,5 @@ pub struct TambahDokumenSubKegiatanInput {
     pub waktu_pelaksanaan: Option<String>,
     pub keluaran: Option<String>,
     pub target_keluaran: Option<String>,
+    pub bebas_shs: Option<bool>,
 }

@@ -392,26 +392,26 @@ pub fn get_dashboard_summary(conn: &Connection, tahun_anggaran_id: i64) -> Resul
 
 fn salin_rincian(conn: &Connection, dari_dokumen_id: i64, ke_dokumen_id: i64) -> Result<(), String> {
     // Ambil semua sub kegiatan dari dokumen asal
-    let dsk_list: Vec<(i64, i64, f64, Option<i64>, Option<String>, Option<String>, Option<String>, Option<String>)> = {
+    let dsk_list: Vec<(i64, i64, f64, Option<i64>, Option<String>, Option<String>, Option<String>, Option<String>, i64)> = {
         let mut stmt = conn.prepare(
             "SELECT id, master_sub_kegiatan_id, pagu, sumber_dana_id,
-                    lokasi, waktu_pelaksanaan, keluaran, target_keluaran
+                    lokasi, waktu_pelaksanaan, keluaran, target_keluaran, bebas_shs
              FROM dokumen_sub_kegiatan WHERE dokumen_id = ?1"
         ).map_err(|e| e.to_string())?;
         stmt.query_map(rusqlite::params![dari_dokumen_id], |row| {
             Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
-                row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?))
+                row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?))
         }).map_err(|e| e.to_string())?
         .filter_map(|r| r.ok()).collect()
     };
 
-    for (old_dsk_id, msk_id, pagu, sd_id, lokasi, waktu, keluaran, target) in &dsk_list {
+    for (old_dsk_id, msk_id, pagu, sd_id, lokasi, waktu, keluaran, target, bebas_shs) in &dsk_list {
         conn.execute(
             "INSERT INTO dokumen_sub_kegiatan
                 (dokumen_id, master_sub_kegiatan_id, pagu, sumber_dana_id,
-                 lokasi, waktu_pelaksanaan, keluaran, target_keluaran)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-            rusqlite::params![ke_dokumen_id, msk_id, pagu, sd_id, lokasi, waktu, keluaran, target],
+                 lokasi, waktu_pelaksanaan, keluaran, target_keluaran, bebas_shs)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            rusqlite::params![ke_dokumen_id, msk_id, pagu, sd_id, lokasi, waktu, keluaran, target, bebas_shs],
         ).map_err(|e| e.to_string())?;
         let new_dsk_id = conn.last_insert_rowid();
 

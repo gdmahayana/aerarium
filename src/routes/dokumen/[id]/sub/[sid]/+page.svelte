@@ -99,6 +99,7 @@
   let showShsResults = $state(false);
   let selectedShsId = $state<number | null>(null);
   let tahunAktifId = $state(0);
+  let bebasShs = $state(false);
   let fItem = $state({
     uraian: "", spesifikasi: "",
     volume: "1", satuan: "",
@@ -177,11 +178,16 @@
     await muat();
     loading = false;
     try {
+      // Load info sub kegiatan untuk cek bebas_shs
+      const dokumenId = Number($page.params.id);
       const tahunList = await invoke<any[]>("get_tahun_anggaran");
       const ta = tahunList.find((t: any) => t.aktif);
       if (ta) {
         tahunAktifId = ta.id;
         shsList = await invoke<ShsItem[]>("get_shs", { tahunAnggaranId: ta.id });
+        const dskList = await invoke<any[]>("get_dokumen_sub_kegiatan", { dokumenId });
+        const thisDsk = dskList.find((d: any) => d.id === subId);
+        if (thisDsk) bebasShs = thisDsk.bebas_shs;
       }
     } catch(e) {}
   });
@@ -359,6 +365,7 @@
 
       <div style="display:flex; flex-direction:column; gap:14px;">
         <!-- Search SHS -->
+        {#if !bebasShs}
         <div style="position:relative;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <span class="label">Cari dari Database SHS <span style="font-size:11px; color:var(--text-3); font-weight:400;">(opsional)</span></span>
@@ -410,7 +417,9 @@
             </div>
           {/if}
         </div>
-
+        {:else}
+        <div style="padding:10px 14px; border-radius:6px; background:#052e16; border:1px solid #14532d; font-size:12px; color:#4ade80; margin-bottom:4px;">✓ Sub kegiatan ini bebas SHS — input harga manual</div>
+        {/if}
         <div style="border-top:1px solid var(--border); padding-top:14px;">
           <div style="font-size:11px; color:var(--text-3); margin-bottom:10px;">Detail item — terisi otomatis dari SHS atau input manual</div>
         </div>

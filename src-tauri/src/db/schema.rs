@@ -144,6 +144,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             waktu_pelaksanaan TEXT,
             keluaran TEXT,
             target_keluaran TEXT,
+            bebas_shs INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (dokumen_id) REFERENCES dokumen(id),
             FOREIGN KEY (master_sub_kegiatan_id) REFERENCES master_sub_kegiatan(id),
