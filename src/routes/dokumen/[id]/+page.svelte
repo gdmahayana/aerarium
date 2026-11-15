@@ -430,6 +430,7 @@
         {#if dokumen.jenis === "Kertas Kerja"}
           <a href="/dokumen/{dokumenId}/petakan" class="btn btn-ghost" style="font-size:12px;">🔄 Petakan SHS</a>
         {/if}
+        <a href="/dokumen/{dokumenId}/sipd" class="btn btn-ghost" style="font-size:12px;">📋 View SIPD</a>
         <button
           onclick={exportExcel}
           disabled={exporting || dskList.length === 0}
