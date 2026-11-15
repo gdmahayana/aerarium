@@ -35,6 +35,23 @@
   }
   interface SumberDana { id: number; kode: string; nama: string; }
 
+  interface PaguIndikatif {
+    id: number;
+    dokumen_id: number;
+    kode_rekening: string | null;
+    uraian: string;
+    pagu: number;
+    created_at: string;
+  }
+  interface PaguIndikatifRekap {
+    id: number;
+    kode_rekening: string | null;
+    uraian: string;
+    pagu: number;
+    total_rincian: number;
+    selisih: number;
+  }
+
   const dokumenId = $derived(Number($page.params.id));
 
   let dokumen       = $state<Dokumen | null>(null);
@@ -53,6 +70,16 @@
   let totalRincian  = $state<Record<number, number>>({});
   let exporting     = $state(false);
   let exportMsg     = $state("");
+
+  // Pagu Indikatif
+  let activeTab       = $state<"subkegiatan"|"alokasi">("subkegiatan");
+  let paguList        = $state<PaguIndikatif[]>([]);
+  let paguRekap       = $state<PaguIndikatifRekap[]>([]);
+  let showFormPagu    = $state(false);
+  let editingPaguId   = $state<number | null>(null);
+  let submittingPagu  = $state(false);
+  let fPagu = $state({ kode_rekening: "", uraian: "", pagu: "" });
+  let fPaguEdit = $state({ kode_rekening: "", uraian: "", pagu: "" });
 
   let form = $state({
     master_sub_kegiatan_id: 0, pagu: "", sumber_dana_id: "",
@@ -103,10 +130,66 @@
           invoke<SumberDana[]>("get_sumber_dana", { tahunAnggaranId: tahunAktif.id }),
         ]);
         await muatStatus();
+      if (dokumen && dokumen.jenis === "Pagu Indikatif") {
+        await muatPagu();
+      }
       }
     } catch(e) { error = String(e); }
     finally { loading = false; }
   });
+
+  async function muatPagu() {
+    try {
+      [paguList, paguRekap] = await Promise.all([
+        invoke<PaguIndikatif[]>("get_pagu_indikatif", { dokumenId }),
+        invoke<PaguIndikatifRekap[]>("get_pagu_indikatif_rekap", { dokumenId }),
+      ]);
+    } catch(e) { error = String(e); }
+  }
+
+  async function simpanPagu() {
+    if (!fPagu.uraian || !fPagu.pagu) return;
+    submittingPagu = true;
+    try {
+      await invoke("tambah_pagu_indikatif", { input: {
+        dokumen_id: dokumenId,
+        kode_rekening: fPagu.kode_rekening || null,
+        uraian: fPagu.uraian,
+        pagu: parseFloat(fPagu.pagu),
+      }});
+      fPagu = { kode_rekening: "", uraian: "", pagu: "" };
+      showFormPagu = false;
+      await muatPagu();
+    } catch(e) { error = String(e); }
+    finally { submittingPagu = false; }
+  }
+
+  function bukaEditPagu(p: PaguIndikatif) {
+    editingPaguId = p.id;
+    fPaguEdit = { kode_rekening: p.kode_rekening || "", uraian: p.uraian, pagu: String(p.pagu) };
+  }
+
+  async function simpanEditPagu(id: number) {
+    submittingPagu = true;
+    try {
+      await invoke("update_pagu_indikatif", { id, input: {
+        kode_rekening: fPaguEdit.kode_rekening || null,
+        uraian: fPaguEdit.uraian,
+        pagu: parseFloat(fPaguEdit.pagu),
+      }});
+      editingPaguId = null;
+      await muatPagu();
+    } catch(e) { error = String(e); }
+    finally { submittingPagu = false; }
+  }
+
+  async function hapusPagu(id: number) {
+    if (!confirm("Hapus alokasi ini? Item yang terkait akan dilepas dari alokasi.")) return;
+    try {
+      await invoke("hapus_pagu_indikatif", { id });
+      await muatPagu();
+    } catch(e) { error = String(e); }
+  }
 
   async function muatStatus() {
     try {
@@ -147,6 +230,11 @@
   );
 
   let totalPagu = $derived(dskList.reduce((s, d) => s + d.pagu, 0));
+  let totalPaguAlokasi = $derived(paguRekap.reduce((s, p) => s + p.pagu, 0));
+  let totalRincianAlokasi = $derived(paguRekap.reduce((s, p) => s + p.total_rincian, 0));
+  let selisihTotal = $derived(totalPaguAlokasi - totalRincianAlokasi);
+  let adaOverBudget = $derived(paguRekap.some(p => p.selisih < 0));
+  let adaSelisihPagu = $derived(paguRekap.length > 0 && paguRekap.some(p => p.selisih !== 0));
   let adaWarningGlobal = $derived(Object.values(statusRincian).some(v => v));
 
   function bukaForm() {
@@ -171,6 +259,9 @@
       dskList = await invoke<DokumenSubKegiatan[]>("get_dokumen_sub_kegiatan", { dokumenId });
       showForm = false;
       await muatStatus();
+      if (dokumen && dokumen.jenis === "Pagu Indikatif") {
+        await muatPagu();
+      }
     } catch(e) { error = String(e); }
     finally { submitting = false; }
   }
@@ -200,6 +291,9 @@
       dskList = await invoke<DokumenSubKegiatan[]>("get_dokumen_sub_kegiatan", { dokumenId });
       editingId = null;
       await muatStatus();
+      if (dokumen && dokumen.jenis === "Pagu Indikatif") {
+        await muatPagu();
+      }
     } catch(e) { error = String(e); }
     finally { submitting = false; }
   }
@@ -231,6 +325,9 @@
       await invoke('toggle_bebas_shs', { id });
       dskList = await invoke('get_dokumen_sub_kegiatan', { dokumenId });
       await muatStatus();
+      if (dokumen && dokumen.jenis === "Pagu Indikatif") {
+        await muatPagu();
+      }
     } catch(e) { error = String(e); }
   }
   async function jadikanDpa() {
@@ -369,6 +466,16 @@
             </div>
           </div>
         {/if}
+        {#if dokumen.jenis === "Pagu Indikatif" && adaSelisihPagu}
+          <div>
+            <div style="font-size:10px; color:{adaOverBudget ? '#dc2626' : '#856404'}; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;">
+              {adaOverBudget ? "Over Budget" : "Selisih Pagu"}
+            </div>
+            <div style="font-size:18px; font-weight:700; color:{adaOverBudget ? '#f87171' : '#fbbf24'};">
+              {paguRekap.filter(p => p.selisih !== 0).length} alokasi
+            </div>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
@@ -393,8 +500,134 @@
 {:else if !dokumen}
   <p style="font-size:13px; color:var(--text-3);">Dokumen tidak ditemukan.</p>
 {:else}
+  <!-- Tab switcher — hanya untuk Pagu Indikatif -->
+  {#if dokumen.jenis === "Pagu Indikatif"}
+    <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:20px; width:fit-content;">
+      <button
+        style="padding:8px 20px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:{activeTab === 'subkegiatan' ? '#0ea5e9' : 'transparent'}; color:{activeTab === 'subkegiatan' ? 'white' : 'var(--text-3)'}; font-family:inherit;"
+        onclick={() => activeTab = 'subkegiatan'}
+      >Sub Kegiatan</button>
+      <button
+        style="padding:8px 20px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:{activeTab === 'alokasi' ? '#0ea5e9' : 'transparent'}; color:{activeTab === 'alokasi' ? 'white' : 'var(--text-3)'}; font-family:inherit; border-left:1px solid var(--border);"
+        onclick={() => activeTab = 'alokasi'}
+      >◈ Alokasi Pagu {paguList.length > 0 ? '(' + paguList.length + ')' : ''}</button>
+    </div>
+  {/if}
+
+  <!-- Panel Alokasi Pagu -->
+  {#if dokumen.jenis === "Pagu Indikatif" && activeTab === 'alokasi'}
+    <!-- Rekap bar -->
+    <div style="display:flex; gap:20px; margin-bottom:16px; padding:14px 20px; background:var(--surface-2); border-radius:8px; border:1px solid var(--border);">
+      <div>
+        <div style="font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;">Total Alokasi Bappeda</div>
+        <div style="font-size:16px; font-weight:700; color:#0ea5e9;">{formatRp(totalPaguAlokasi)}</div>
+      </div>
+      <div>
+        <div style="font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;">Total Rincian</div>
+        <div style="font-size:16px; font-weight:700; color:var(--text);">{formatRp(totalRincianAlokasi)}</div>
+      </div>
+      <div>
+        <div style="font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;">Selisih</div>
+        <div style="font-size:16px; font-weight:700; color:{selisihTotal < 0 ? '#f87171' : selisihTotal === 0 ? '#4ade80' : 'var(--text-2)'};">
+          {selisihTotal < 0 ? '-' : ''}{formatRp(Math.abs(selisihTotal))}
+        </div>
+      </div>
+      {#if adaOverBudget}
+        <div style="margin-left:auto; display:flex; align-items:center;">
+          <span style="font-size:11px; background:#2d1f00; color:#fbbf24; border:1px solid #4a3200; border-radius:4px; padding:4px 10px;">⚠ Ada alokasi melebihi pagu</span>
+        </div>
+      {/if}
+    </div>
+
+    <!-- Toolbar -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span class="label">Daftar Alokasi dari Bappeda</span>
+      <button onclick={() => { showFormPagu = !showFormPagu; fPagu = { kode_rekening: '', uraian: '', pagu: '' }; }} class="btn btn-primary" style="font-size:12px;">+ Tambah Alokasi</button>
+    </div>
+
+    <!-- Form tambah -->
+    {#if showFormPagu}
+      <div class="card" style="padding:16px; margin-bottom:16px; border:1px solid #0ea5e944;">
+        <div style="display:flex; gap:10px; align-items:flex-end;">
+          <div style="flex:0 0 160px;">
+            <div class="label" style="margin-bottom:6px;">Kode Rekening</div>
+            <input class="input" bind:value={fPagu.kode_rekening} placeholder="5.1.02..." />
+          </div>
+          <div style="flex:1;">
+            <div class="label" style="margin-bottom:6px;">Uraian <span style="color:var(--accent);">*</span></div>
+            <input class="input" bind:value={fPagu.uraian} placeholder="Belanja Pegawai..." autofocus />
+          </div>
+          <div style="flex:0 0 180px;">
+            <div class="label" style="margin-bottom:6px;">Pagu (Rp) <span style="color:var(--accent);">*</span></div>
+            <input class="input" type="number" bind:value={fPagu.pagu} placeholder="0" />
+          </div>
+          <button onclick={simpanPagu} disabled={submittingPagu || !fPagu.uraian || !fPagu.pagu} class="btn btn-primary">{submittingPagu ? '...' : 'Simpan'}</button>
+          <button onclick={() => showFormPagu = false} class="btn btn-ghost">Batal</button>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Tabel alokasi -->
+    {#if paguRekap.length === 0}
+      <div class="card" style="padding:40px; text-align:center;">
+        <p style="font-size:13px; color:var(--text-3);">Belum ada alokasi. Tambah dari spreadsheet Bappeda.</p>
+      </div>
+    {:else}
+      <div class="card" style="overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+          <thead>
+            <tr style="background:var(--surface-2); border-bottom:1px solid var(--border);">
+              <th style="text-align:left; padding:10px 16px; color:var(--text-3); font-weight:600;">Kode Rekening</th>
+              <th style="text-align:left; padding:10px 16px; color:var(--text-3); font-weight:600;">Uraian</th>
+              <th style="text-align:right; padding:10px 16px; color:var(--text-3); font-weight:600;">Pagu Bappeda</th>
+              <th style="text-align:right; padding:10px 16px; color:var(--text-3); font-weight:600;">Total Rincian</th>
+              <th style="text-align:right; padding:10px 16px; color:var(--text-3); font-weight:600;">Selisih</th>
+              <th style="padding:10px 16px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each paguRekap as p, i}
+              {@const over = p.selisih < 0}
+              {#if editingPaguId === p.id}
+                <tr style="background:#0ea5e908; border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 16px;"><input class="input" style="font-size:12px;" bind:value={fPaguEdit.kode_rekening} placeholder="5.1..." /></td>
+                  <td style="padding:8px 16px;"><input class="input" style="font-size:12px;" bind:value={fPaguEdit.uraian} /></td>
+                  <td style="padding:8px 16px;"><input class="input" style="font-size:12px; text-align:right;" type="number" bind:value={fPaguEdit.pagu} /></td>
+                  <td colspan="2"></td>
+                  <td style="padding:8px 16px;">
+                    <div style="display:flex; gap:6px;">
+                      <button onclick={() => simpanEditPagu(p.id)} disabled={submittingPagu} class="btn btn-primary" style="font-size:11px;">{submittingPagu ? '...' : 'Simpan'}</button>
+                      <button onclick={() => editingPaguId = null} class="btn btn-ghost" style="font-size:11px;">Batal</button>
+                    </div>
+                  </td>
+                </tr>
+              {:else}
+                <tr style="border-bottom:{i < paguRekap.length - 1 ? '1px solid var(--border)' : 'none'};">
+                  <td style="padding:12px 16px; font-family:monospace; color:var(--text-3);">{p.kode_rekening || '—'}</td>
+                  <td style="padding:12px 16px; color:var(--text); font-weight:500;">{p.uraian}</td>
+                  <td style="padding:12px 16px; text-align:right; color:#0ea5e9; font-weight:600;">{formatRp(p.pagu)}</td>
+                  <td style="padding:12px 16px; text-align:right; color:var(--text-2);">{formatRp(p.total_rincian)}</td>
+                  <td style="padding:12px 16px; text-align:right; font-weight:600; color:{over ? '#f87171' : p.selisih === 0 ? '#4ade80' : 'var(--text-2)'};">
+                    {over ? '▲ ' : ''}{formatRp(Math.abs(p.selisih))}
+                    {#if over}<span style="font-size:10px; margin-left:4px;">over</span>{/if}
+                  </td>
+                  <td style="padding:12px 16px;">
+                    <div style="display:flex; gap:6px;">
+                      <button onclick={() => bukaEditPagu(paguList.find(x => x.id === p.id)!)} class="btn btn-ghost" style="font-size:11px;">Edit</button>
+                      <button onclick={() => hapusPagu(p.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">✕</button>
+                    </div>
+                  </td>
+                </tr>
+              {/if}
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  {/if}
+
   <!-- Toolbar sub kegiatan -->
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; {dokumen.jenis === 'Pagu Indikatif' && activeTab === 'alokasi' ? 'display:none;' : ''}">
     <span class="label">Sub Kegiatan</span>
     <div style="display:flex; gap:8px;">
       {#if !showForm && masterSubTersedia().length > 0}
@@ -405,6 +638,7 @@
     </div>
   </div>
 
+{#if dokumen.jenis !== "Pagu Indikatif" || activeTab === "subkegiatan"}
   <!-- Form tambah -->
   {#if showForm}
     <div class="card" style="padding:20px; margin-bottom:20px; border:1px solid {cfg.warna}44; max-width:640px;">
@@ -612,4 +846,5 @@
       {/each}
     </div>
   {/if}
+{/if}
 {/if}

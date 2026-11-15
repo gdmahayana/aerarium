@@ -97,6 +97,8 @@ pub struct RincianItem {
     pub dikunci: bool,
     pub urutan: i32,
     pub created_at: String,
+    pub pagu_indikatif_id: Option<i64>,
+    pub shs_kode: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -116,4 +118,5 @@ pub struct TambahRincianItemInput {
     pub harga: f64,
     pub ppn: Option<f64>,
     pub urutan: Option<i32>,
+    pub pagu_indikatif_id: Option<i64>,
 }

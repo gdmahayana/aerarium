@@ -20,6 +20,8 @@
     ppn: number;
     realisasi: number;
     dikunci: boolean;
+    shs_kode: string | null;
+    pagu_indikatif_id: number | null;
   }
 
   interface RincianKeterangan {
@@ -55,6 +57,14 @@
     kode_rekening: string | null;
   }
 
+  interface PaguIndikatif {
+    id: number;
+    dokumen_id: number;
+    kode_rekening: string | null;
+    uraian: string;
+    pagu: number;
+  }
+
   const dokumenId = $derived(Number($page.params.id));
   const subId = $derived(Number($page.params.sid));
 
@@ -65,6 +75,8 @@
 
   // Form rekening
   let showFormRekening = $state(false);
+  let rekeningHasil = $state<[number, string, string][]>([]);
+  let showRekeningAC = $state(false);
   let fRekKode = $state("");
   let fRekUraian = $state("");
 
@@ -90,7 +102,11 @@
     koef4: "", satuan4: "",
     harga: "", ppn: false,
   });
+  let editItemRealisasi = $state(0);
   let koefCountEdit = $state(1);
+  let selectedPaguIdEdit = $state<number | null>(null);
+  let editRealisasiId = $state<number | null>(null);
+  let fRealisasi = $state("");
   let activeKetId = $state<number | null>(null);
   let koefCount = $state(1);
   let shsList = $state<ShsItem[]>([]);
@@ -100,6 +116,9 @@
   let selectedShsId = $state<number | null>(null);
   let tahunAktifId = $state(0);
   let bebasShs = $state(false);
+  let paguList = $state<PaguIndikatif[]>([]);
+  let jenisDokumen = $state("");
+  let selectedPaguId = $state<number | null>(null);
   let fItem = $state({
     uraian: "", spesifikasi: "",
     volume: "1", satuan: "",
@@ -108,6 +127,15 @@
     koef4: "", satuan4: "",
     harga: "", ppn: false,
   });
+
+  let shsFiltered = $derived(
+    cariShs.length < 2 ? [] :
+    shsList.filter(s => s.sumber === sumberShs).filter(s =>
+      s.uraian.toLowerCase().includes(cariShs.toLowerCase()) ||
+      s.kode.toLowerCase().includes(cariShs.toLowerCase()) ||
+      (s.spesifikasi && s.spesifikasi.toLowerCase().includes(cariShs.toLowerCase()))
+    ).slice(0, 8)
+  );
 
   let totalItem = $derived(() => {
     const v1 = parseFloat(fItem.volume) || 0;
@@ -146,6 +174,18 @@
 
   function totalSemua() {
     return rekeningList.reduce((s, r) => s + r.pengelompokanList.reduce((s2, p) => s2 + totalPengelompokan(p), 0), 0);
+  }
+
+  function totalRealisasiSemua() {
+    return rekeningList.reduce((s, r) =>
+      s + r.pengelompokanList.reduce((s2, p) =>
+        s2 + p.keteranganList.reduce((s3, k) =>
+          s3 + k.items.reduce((s4, i) => s4 + (i.realisasi || 0), 0), 0), 0), 0);
+  }
+
+  function persen(realisasi: number, anggaran: number) {
+    if (anggaran === 0) return 0;
+    return Math.min(100, Math.round((realisasi / anggaran) * 100));
   }
 
   function formatRp(n: number) {
@@ -188,18 +228,20 @@
         const dskList = await invoke<any[]>("get_dokumen_sub_kegiatan", { dokumenId });
         const thisDsk = dskList.find((d: any) => d.id === subId);
         if (thisDsk) bebasShs = thisDsk.bebas_shs;
+        // Load jenis dokumen dan pagu indikatif
+        const dokList = await invoke<any[]>("get_dokumen", { tahunAnggaranId: ta.id });
+        const thisDok = dokList.find((d: any) => d.id === dokumenId);
+        if (thisDok) {
+          jenisDokumen = thisDok.jenis;
+          if (thisDok.jenis === "Pagu Indikatif") {
+            paguList = await invoke<PaguIndikatif[]>("get_pagu_indikatif", { dokumenId });
+          }
+        }
       }
     } catch(e) {}
   });
 
-  let shsFiltered = $derived(
-    cariShs.length < 2 ? [] :
-    shsList.filter(s => s.sumber === sumberShs).filter(s =>
-      s.uraian.toLowerCase().includes(cariShs.toLowerCase()) ||
-      s.kode.toLowerCase().includes(cariShs.toLowerCase()) ||
-      (s.spesifikasi && s.spesifikasi.toLowerCase().includes(cariShs.toLowerCase()))
-    ).slice(0, 8)
-  );
+
 
   function pilihShs(shs: ShsItem) {
     fItem.uraian = shs.uraian;
@@ -224,6 +266,20 @@
       fRekKode = ""; fRekUraian = ""; showFormRekening = false;
       await muat();
     } catch(e) { error = String(e); } finally { submitting = false; }
+  }
+
+  async function cariRekening(q: string) {
+    if (q.length < 2) { rekeningHasil = []; showRekeningAC = false; return; }
+    try {
+      rekeningHasil = await invoke<[number, string, string][]>("cari_rekening", { query: q });
+      showRekeningAC = rekeningHasil.length > 0;
+    } catch(e) {}
+  }
+
+  function pilihRekening(kode: string, uraian: string) {
+    fRekKode = kode;
+    fRekUraian = uraian;
+    showRekeningAC = false;
   }
 
   async function tambahPengelompokan() {
@@ -254,6 +310,7 @@
     selectedShsId = null;
     sumberShs = "rencana";
     fItem = { uraian: "", spesifikasi: "", volume: "1", satuan: "", koef2: "", satuan2: "", koef3: "", satuan3: "", koef4: "", satuan4: "", harga: "", ppn: false };
+    selectedPaguId = null;
     showModalItem = true;
   }
 
@@ -277,6 +334,7 @@
           satuan4: fItem.satuan4 || null,
           harga: parseFloat(fItem.harga),
           ppn: fItem.ppn ? 11 : null,
+          pagu_indikatif_id: selectedPaguId,
         }
       });
       showModalItem = false;
@@ -301,6 +359,8 @@
       harga: String(item.harga),
       ppn: item.ppn > 0,
     };
+    selectedPaguIdEdit = item.pagu_indikatif_id;
+    editItemRealisasi = item.realisasi || 0;
     showModalEdit = true;
   }
 
@@ -308,6 +368,7 @@
     if (!fEdit.uraian || !fEdit.satuan || !fEdit.harga || !editItemId) return;
     submitting = true;
     try {
+      await invoke("set_pagu_indikatif_item", { itemId: editItemId, paguIndikatifId: selectedPaguIdEdit });
       await invoke("update_rincian_item", {
         id: editItemId,
         uraian: fEdit.uraian,
@@ -351,6 +412,14 @@
     if (!confirm("Hapus item ini?")) return;
     try { await invoke("hapus_rincian_item", { id }); await muat(); }
     catch(e) { error = String(e); }
+  }
+
+  async function simpanRealisasi(id: number) {
+    try {
+      await invoke("update_realisasi_item", { id, realisasi: parseFloat(fRealisasi) || 0 });
+      editRealisasiId = null;
+      await muat();
+    } catch(e) { error = String(e); }
   }
 </script>
 
@@ -508,6 +577,20 @@
           </div>
         {/if}
 
+        {#if jenisDokumen === "Pagu Indikatif" && paguList.length > 0}
+          <div>
+            <div class="label" style="margin-bottom:6px;">Masukkan ke alokasi pagu <span style="font-size:11px; color:var(--text-3); font-weight:400;">(opsional)</span></div>
+            <select class="input" bind:value={selectedPaguId}>
+              <option value={null}>— tidak dialokasikan —</option>
+              {#each paguList as p}
+                <option value={p.id}>
+                  {p.kode_rekening ? p.kode_rekening + " — " : ""}{p.uraian}
+                </option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
         <div style="display:flex; gap:10px; padding-top:4px;">
           <button onclick={simpanItem} disabled={submitting || !fItem.uraian || !fItem.satuan || !fItem.harga} class="btn btn-primary">
             {submitting ? "Menyimpan..." : "Simpan"}
@@ -580,6 +663,28 @@
             </label>
           </div>
         </div>
+        {#if (jenisDokumen === "RKA-SKPD Perubahan" || jenisDokumen === "DPPA-SKPD") && editItemRealisasi > 0}
+          {@const anggaranBaru = (parseFloat(fEdit.volume) || 1) * (parseFloat(fEdit.koef2) || 1) * (parseFloat(fEdit.koef3) || 1) * (parseFloat(fEdit.koef4) || 1) * (parseFloat(fEdit.harga) || 0)}
+          <div style="padding:10px 14px; border-radius:6px; background:{anggaranBaru < editItemRealisasi ? '#2d1f00' : '#052e16'}; border:1px solid {anggaranBaru < editItemRealisasi ? '#4a3200' : '#14532d'};">
+            <div style="font-size:11px; font-weight:600; color:{anggaranBaru < editItemRealisasi ? '#fbbf24' : '#4ade80'}; margin-bottom:2px;">
+              {anggaranBaru < editItemRealisasi ? '⚠ Anggaran baru di bawah realisasi!' : '✓ Anggaran mencukupi realisasi'}
+            </div>
+            <div style="font-size:11px; color:var(--text-3);">Realisasi: {formatRp(editItemRealisasi)}</div>
+          </div>
+        {/if}
+
+        {#if jenisDokumen === "Pagu Indikatif" && paguList.length > 0}
+          <div>
+            <div class="label" style="margin-bottom:6px;">Alokasi pagu <span style="font-size:11px; color:var(--text-3); font-weight:400;">(opsional)</span></div>
+            <select class="input" bind:value={selectedPaguIdEdit}>
+              <option value={null}>— tidak dialokasikan —</option>
+              {#each paguList as p}
+                <option value={p.id}>{p.kode_rekening ? p.kode_rekening + " — " : ""}{p.uraian}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
         <div style="display:flex; gap:10px; padding-top:4px;">
           <button onclick={simpanEditItem} disabled={submitting} class="btn btn-primary">
             {submitting ? "Menyimpan..." : "Simpan Perubahan"}
@@ -597,9 +702,22 @@
     <a href="/dokumen/{dokumenId}" class="btn btn-ghost" style="font-size:12px;">← Sub Kegiatan</a>
     <h2>Rincian Belanja</h2>
   </div>
-  <div style="display:flex; align-items:center; gap:12px;">
+  <div style="display:flex; align-items:center; gap:16px;">
     {#if totalSemua() > 0}
-      <span style="font-size:13px; font-weight:600; color:var(--text-2);">{formatRp(totalSemua())}</span>
+      <div style="text-align:right;">
+        <div style="font-size:11px; color:var(--text-3); margin-bottom:1px;">Anggaran</div>
+        <div style="font-size:13px; font-weight:600; color:var(--text-2);">{formatRp(totalSemua())}</div>
+      </div>
+    {/if}
+    {#if (jenisDokumen === "RKA-SKPD Perubahan" || jenisDokumen === "DPPA-SKPD") && totalRealisasiSemua() > 0}
+      <div style="text-align:right;">
+        <div style="font-size:11px; color:var(--text-3); margin-bottom:1px;">Realisasi</div>
+        <div style="font-size:13px; font-weight:600; color:#4ade80;">{formatRp(totalRealisasiSemua())} <span style="font-size:11px; font-weight:400;">({persen(totalRealisasiSemua(), totalSemua())}%)</span></div>
+      </div>
+      <!-- Progress bar -->
+      <div style="width:80px; height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden;">
+        <div style="height:100%; width:{persen(totalRealisasiSemua(), totalSemua())}%; background:#4ade80; border-radius:3px;"></div>
+      </div>
     {/if}
     <button onclick={() => { showFormRekening = !showFormRekening; }} class="btn btn-primary" style="font-size:12px;">+ Rekening</button>
   </div>
@@ -613,9 +731,26 @@
 {#if showFormRekening}
   <div class="card" style="padding:16px; margin-bottom:16px; max-width:600px;">
     <div style="display:flex; gap:10px; align-items:flex-end;">
-      <div style="flex:0 0 200px;">
+      <div style="flex:0 0 200px; position:relative;">
         <div class="label" style="margin-bottom:6px;">Kode Rekening</div>
-        <input class="input" bind:value={fRekKode} placeholder="5.1.02.01.001" />
+        <input class="input" bind:value={fRekKode}
+          oninput={() => cariRekening(fRekKode)}
+          onfocus={() => cariRekening(fRekKode)}
+          onblur={() => setTimeout(() => showRekeningAC = false, 150)}
+          placeholder="5.1.02.01.001" />
+        {#if showRekeningAC}
+          <div style="position:absolute; top:100%; left:0; right:0; z-index:200; background:var(--surface); border:1px solid var(--border); border-radius:6px; margin-top:2px; box-shadow:0 4px 16px rgba(0,0,0,0.3); max-height:200px; overflow-y:auto;">
+            {#each rekeningHasil as [, kode, uraian]}
+              <button
+                style="width:100%; text-align:left; padding:8px 12px; background:transparent; border:none; border-bottom:1px solid var(--border); cursor:pointer; display:flex; gap:12px; align-items:baseline;"
+                onmousedown={() => pilihRekening(kode, uraian)}
+              >
+                <span style="font-size:11px; font-family:monospace; color:var(--text-3); min-width:120px;">{kode}</span>
+                <span style="font-size:12px; color:var(--text);">{uraian}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
       <div style="flex:1;">
         <div class="label" style="margin-bottom:6px;">Uraian</div>
@@ -724,12 +859,41 @@
                 <div style="font-size:12px; color:var(--text-3); margin-top:4px; font-family:monospace;">
                   {koefString(item)} × {formatRp(item.harga)}
                   {#if item.ppn > 0}<span style="color:var(--accent); margin-left:4px;">+PPN</span>{/if}
+                  {#if item.shs_kode}
+                    <span style="margin-left:8px; font-size:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:3px; padding:1px 6px; color:var(--text-3); letter-spacing:0.03em;" title="Kode SHS — gunakan untuk referensi input SIPD">SIPD: {item.shs_kode}</span>
+                  {/if}
+                  {#if item.pagu_indikatif_id && paguList.length > 0}
+                    {@const alokasi = paguList.find(p => p.id === item.pagu_indikatif_id)}
+                    {#if alokasi}
+                      <span style="margin-left:8px; font-size:10px; background:#0ea5e915; border:1px solid #0ea5e933; border-radius:3px; padding:1px 6px; color:#0ea5e9;" title="Alokasi pagu indikatif">◈ {alokasi.uraian}</span>
+                    {/if}
+                  {/if}
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:12px;">
+              <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums;">{formatRp(totalItemCalc(item))}</span>
+                <!-- Realisasi — hanya DPA/DPPA -->
+                {#if jenisDokumen === "RKA-SKPD Perubahan" || jenisDokumen === "DPPA-SKPD"}
+                {#if editRealisasiId === item.id}
+                  <input
+                    class="input" type="number"
+                    style="width:120px; font-size:12px;"
+                    bind:value={fRealisasi}
+                    onkeydown={(e) => { if (e.key === 'Enter') simpanRealisasi(item.id); if (e.key === 'Escape') editRealisasiId = null; }}
+                    autofocus
+                  />
+                  <button onclick={() => simpanRealisasi(item.id)} class="btn btn-primary" style="font-size:11px;">✓</button>
+                  <button onclick={() => editRealisasiId = null} class="btn btn-ghost" style="font-size:11px;">✕</button>
+                {:else}
+                  <button
+                    onclick={() => { editRealisasiId = item.id; fRealisasi = String(item.realisasi || 0); }}
+                    style="font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid {item.realisasi > 0 ? '#14532d' : 'var(--border)'}; background:{item.realisasi > 0 ? '#052e16' : 'transparent'}; color:{item.realisasi > 0 ? '#4ade80' : 'var(--text-3)'}; cursor:pointer; font-family:inherit;"
+                    title="Klik untuk input realisasi"
+                  >{item.realisasi > 0 ? formatRp(item.realisasi) : 'Realisasi'}</button>
+                {/if}
                 <button onclick={() => bukaEditItem(item)} class="btn btn-ghost" style="font-size:11px;">Edit</button>
                 <button onclick={() => hapusItem(item.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
+                {/if}
               </div>
             </div>
           {/each}

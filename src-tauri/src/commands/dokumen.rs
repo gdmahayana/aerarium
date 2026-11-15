@@ -293,7 +293,7 @@ pub fn jadikan_rka(conn: &Connection, kertas_kerja_id: i64) -> Result<i64, Strin
                     let mut stmt = conn.prepare(
                         "SELECT shs_id, uraian, spesifikasi, volume, satuan,
                                 koef2, satuan2, koef3, satuan3, koef4, satuan4,
-                                harga, ppn, urutan
+                                harga, ppn, urutan, realisasi, pagu_indikatif_id
                          FROM rincian_item WHERE rincian_keterangan_id = ?1"
                     ).map_err(|e| e.to_string())?;
                     let items: Vec<_> = stmt.query_map(rusqlite::params![old_ket_id], |row| {
@@ -305,6 +305,7 @@ pub fn jadikan_rka(conn: &Connection, kertas_kerja_id: i64) -> Result<i64, Strin
                             row.get::<_,Option<String>>(8)?, row.get::<_,Option<f64>>(9)?,
                             row.get::<_,Option<String>>(10)?, row.get::<_,f64>(11)?,
                             row.get::<_,f64>(12)?, row.get::<_,i64>(13)?,
+                            row.get::<_,f64>(14)?, row.get::<_,Option<i64>>(15)?,
                         ))
                     }).map_err(|e| e.to_string())?
                     .filter_map(|r| r.ok())
@@ -312,17 +313,17 @@ pub fn jadikan_rka(conn: &Connection, kertas_kerja_id: i64) -> Result<i64, Strin
 
                     for (shs_id, uraian, spesifikasi, volume, satuan,
                          koef2, satuan2, koef3, satuan3, koef4, satuan4,
-                         harga, ppn, urutan) in items {
+                         harga, ppn, urutan, realisasi, pagu_indikatif_id) in items {
                         conn.execute(
                             "INSERT INTO rincian_item
                                 (rincian_keterangan_id, shs_id, uraian, spesifikasi,
                                  volume, satuan, koef2, satuan2, koef3, satuan3,
-                                 koef4, satuan4, harga, ppn, urutan)
-                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+                                 koef4, satuan4, harga, ppn, urutan, realisasi, pagu_indikatif_id)
+                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
                             rusqlite::params![
                                 new_ket_id, shs_id, uraian, spesifikasi,
                                 volume, satuan, koef2, satuan2, koef3, satuan3,
-                                koef4, satuan4, harga, ppn, urutan
+                                koef4, satuan4, harga, ppn, urutan, realisasi, pagu_indikatif_id
                             ],
                         ).map_err(|e| e.to_string())?;
                     }
@@ -474,31 +475,32 @@ fn salin_rincian(conn: &Connection, dari_dokumen_id: i64, ke_dokumen_id: i64) ->
                     let mut stmt = conn.prepare(
                         "SELECT shs_id, uraian, spesifikasi, volume, satuan,
                                 koef2, satuan2, koef3, satuan3, koef4, satuan4,
-                                harga, ppn, urutan
+                                harga, ppn, urutan, realisasi, pagu_indikatif_id
                          FROM rincian_item WHERE rincian_keterangan_id = ?1"
                     ).map_err(|e| e.to_string())?;
                     let items: Vec<(Option<i64>,String,Option<String>,f64,String,
                                    Option<f64>,Option<String>,Option<f64>,Option<String>,
-                                   Option<f64>,Option<String>,f64,f64,i64)> =
+                                   Option<f64>,Option<String>,f64,f64,i64,f64,Option<i64>)> =
                         stmt.query_map(rusqlite::params![old_ket_id], |row| {
                             Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?,
                                 row.get(5)?,row.get(6)?,row.get(7)?,row.get(8)?,
-                                row.get(9)?,row.get(10)?,row.get(11)?,row.get(12)?,row.get(13)?))
+                                row.get(9)?,row.get(10)?,row.get(11)?,row.get(12)?,row.get(13)?,
+                                row.get(14)?,row.get(15)?))
                         }).map_err(|e| e.to_string())?
                         .filter_map(|r| r.ok()).collect();
 
                     for (shs_id,uraian,spesifikasi,volume,satuan,
                          koef2,satuan2,koef3,satuan3,koef4,satuan4,
-                         harga,ppn,urutan) in items {
+                         harga,ppn,urutan,realisasi,pagu_indikatif_id) in items {
                         conn.execute(
                             "INSERT INTO rincian_item
                                 (rincian_keterangan_id, shs_id, uraian, spesifikasi,
                                  volume, satuan, koef2, satuan2, koef3, satuan3,
-                                 koef4, satuan4, harga, ppn, urutan)
-                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+                                 koef4, satuan4, harga, ppn, urutan, realisasi, pagu_indikatif_id)
+                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
                             rusqlite::params![new_ket_id,shs_id,uraian,spesifikasi,
                                 volume,satuan,koef2,satuan2,koef3,satuan3,
-                                koef4,satuan4,harga,ppn,urutan],
+                                koef4,satuan4,harga,ppn,urutan,realisasi,pagu_indikatif_id],
                         ).map_err(|e| e.to_string())?;
                     }
                 }

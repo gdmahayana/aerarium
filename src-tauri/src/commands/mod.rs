@@ -4,3 +4,4 @@ pub mod dokumen;
 pub mod rincian;
 pub mod kegiatan;
 pub mod export;
+pub mod pagu_indikatif;

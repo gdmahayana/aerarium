@@ -182,6 +182,18 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (rincian_pengelompokan_id) REFERENCES rincian_pengelompokan(id)
         );
 
+        CREATE TABLE IF NOT EXISTS pagu_indikatif (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            dokumen_id      INTEGER NOT NULL,
+            kode_rekening   TEXT,
+            uraian          TEXT NOT NULL,
+            pagu            REAL NOT NULL DEFAULT 0,
+            created_at      TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (dokumen_id) REFERENCES dokumen(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_pagu_indikatif_dokumen ON pagu_indikatif(dokumen_id);
+
         CREATE TABLE IF NOT EXISTS rincian_item (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             rincian_keterangan_id INTEGER NOT NULL,
@@ -202,14 +214,17 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             dikunci INTEGER NOT NULL DEFAULT 0,
             urutan INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            pagu_indikatif_id INTEGER,
             FOREIGN KEY (rincian_keterangan_id) REFERENCES rincian_keterangan(id),
-            FOREIGN KEY (shs_id) REFERENCES shs(id)
+            FOREIGN KEY (shs_id) REFERENCES shs(id),
+            FOREIGN KEY (pagu_indikatif_id) REFERENCES pagu_indikatif(id) ON DELETE SET NULL
         );
 
         INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (1, 'Initial schema');
         INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (2, 'Rename ssh to shs, tambah jenis SHS, tambah asal_keterangan dokumen');
         INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (3, 'Tambah sumber_dana, rincian_rekening, rincian_pengelompokan, rincian_keterangan, rincian_item');
         INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (4, 'Refactor ke master data: master_program, master_kegiatan, master_sub_kegiatan, dokumen_sub_kegiatan');
+        INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (5, 'Tambah pagu_indikatif dan pagu_indikatif_id di rincian_item');
     "#)?;
 
     Ok(())

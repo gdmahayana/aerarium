@@ -5,6 +5,7 @@ mod models;
 use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd, tambah_shs_manual as tambah_shs_cmd, hapus_shs as hapus_shs_cmd};
 use commands::export::{export_shs_rencana as export_shs_rencana_cmd, export_kertas_kerja as export_kertas_kerja_cmd};
 use commands::rincian as rin;
+use commands::pagu_indikatif as pi;
 use commands::kegiatan as keg;
 use models::kegiatan::{
     TambahMasterProgramInput,
@@ -140,6 +141,76 @@ fn get_dashboard_summary(tahun_anggaran_id: i64) -> Result<(f64, f64, i64), Stri
 }
 
 // Rekening
+#[derive(serde::Serialize, serde::Deserialize)]
+struct RekeningItem { id: i64, kode: String, uraian: String, level: i32 }
+
+#[tauri::command]
+fn get_semua_rekening() -> Result<Vec<RekeningItem>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, kode, uraian, level FROM rekening ORDER BY kode"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| {
+        Ok(RekeningItem {
+            id: row.get(0)?,
+            kode: row.get(1)?,
+            uraian: row.get(2)?,
+            level: row.get(3)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+    Ok(rows)
+}
+
+#[tauri::command]
+fn import_rekening_bulk(data: Vec<(String, String)>) -> Result<usize, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    let mut count = 0;
+    for (kode, uraian) in &data {
+        let kode = kode.trim();
+        let uraian = uraian.trim();
+        if kode.is_empty() || uraian.is_empty() { continue; }
+        let level = kode.matches('.').count() as i32;
+        let exists: bool = conn.query_row(
+            "SELECT COUNT(*) FROM rekening WHERE kode = ?1",
+            rusqlite::params![kode],
+            |row| row.get::<_,i64>(0),
+        ).unwrap_or(0) > 0;
+        if !exists {
+            conn.execute(
+                "INSERT INTO rekening (kode, uraian, level) VALUES (?1, ?2, ?3)",
+                rusqlite::params![kode, uraian, level],
+            ).map_err(|e| e.to_string())?;
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+#[tauri::command]
+fn hapus_rekening(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM rekening WHERE id = ?1", rusqlite::params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn cari_rekening(query: String) -> Result<Vec<(i64, String, String)>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    let pattern = format!("%{}%", query);
+    let mut stmt = conn.prepare(
+        "SELECT id, kode, uraian FROM rekening WHERE kode LIKE ?1 OR uraian LIKE ?1 ORDER BY kode LIMIT 10"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(rusqlite::params![pattern], |row| {
+        Ok((row.get::<_,i64>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+    Ok(rows)
+}
+
 #[tauri::command]
 fn cari_atau_buat_rekening(kode: String, uraian: String) -> Result<i64, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
@@ -367,6 +438,16 @@ fn update_rincian_item(id: i64, uraian: String, spesifikasi: Option<String>, vol
 }
 
 #[tauri::command]
+fn update_realisasi_item(id: i64, realisasi: f64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE rincian_item SET realisasi = ?1 WHERE id = ?2",
+        rusqlite::params![realisasi, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn hapus_rincian_item(id: i64) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     rin::hapus_rincian_item(&conn, id)
@@ -388,6 +469,43 @@ fn get_shs_rencana_dipakai(dokumen_id: i64) -> Result<Vec<(i64, String, String, 
 fn terapkan_pemetaan_shs(dokumen_id: i64, pemetaan: Vec<(i64, i64)>) -> Result<usize, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     rin::terapkan_pemetaan_shs(&conn, dokumen_id, pemetaan)
+}
+
+// Pagu Indikatif
+#[tauri::command]
+fn get_pagu_indikatif(dokumen_id: i64) -> Result<Vec<commands::pagu_indikatif::PaguIndikatif>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    pi::get_pagu_indikatif(&conn, dokumen_id)
+}
+
+#[tauri::command]
+fn get_pagu_indikatif_rekap(dokumen_id: i64) -> Result<Vec<commands::pagu_indikatif::PaguIndikatifRekap>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    pi::get_pagu_indikatif_rekap(&conn, dokumen_id)
+}
+
+#[tauri::command]
+fn tambah_pagu_indikatif(input: commands::pagu_indikatif::TambahPaguIndikatifInput) -> Result<commands::pagu_indikatif::PaguIndikatif, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    pi::tambah_pagu_indikatif(&conn, input)
+}
+
+#[tauri::command]
+fn update_pagu_indikatif(id: i64, input: commands::pagu_indikatif::UpdatePaguIndikatifInput) -> Result<commands::pagu_indikatif::PaguIndikatif, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    pi::update_pagu_indikatif(&conn, id, input)
+}
+
+#[tauri::command]
+fn hapus_pagu_indikatif(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    pi::hapus_pagu_indikatif(&conn, id)
+}
+
+#[tauri::command]
+fn set_pagu_indikatif_item(item_id: i64, pagu_indikatif_id: Option<i64>) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    rin::set_pagu_indikatif_item(&conn, item_id, pagu_indikatif_id)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -417,6 +535,10 @@ pub fn run() {
             jadikan_dppa,
             buat_pergeseran,
             get_dashboard_summary,
+            get_semua_rekening,
+            import_rekening_bulk,
+            hapus_rekening,
+            cari_rekening,
             cari_atau_buat_rekening,
             get_master_program,
             tambah_master_program,
@@ -451,9 +573,16 @@ pub fn run() {
             hapus_rincian_keterangan,
             update_rincian_item,
             hapus_rincian_item,
+            update_realisasi_item,
             cek_status_rincian,
             get_shs_rencana_dipakai,
             terapkan_pemetaan_shs,
+            get_pagu_indikatif,
+            get_pagu_indikatif_rekap,
+            tambah_pagu_indikatif,
+            update_pagu_indikatif,
+            hapus_pagu_indikatif,
+            set_pagu_indikatif_item,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

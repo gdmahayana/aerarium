@@ -32,13 +32,30 @@
     nama: string;
   }
 
+  interface Rekening {
+    id: number;
+    kode: string;
+    uraian: string;
+    level: number;
+  }
+
   let tahunAktifId = $state(0);
+  let rekeningList = $state<Rekening[]>([]);
+  let showFormRekening = $state(false);
+  let formRekening = $state({ kode: "", uraian: "" });
+  let cariRekening = $state("");
+  let submittingRekening = $state(false);
+  let showImportRekening = $state(false);
+  let importCsv = $state("");
+  let importResult = $state("");
   interface SumberDana {
     id: number;
     tahun_anggaran_id: number;
     kode: string;
     nama: string;
   }
+
+  let activeTab = $state<"program"|"sumber_dana"|"rekening">("program");
 
   let programs = $state<MasterProgram[]>([]);
   let sumberDanaList = $state<SumberDana[]>([]);
@@ -59,6 +76,61 @@
   let showFormKegiatan = $state<number | null>(null);
   let showFormSubKegiatan = $state<number | null>(null);
 
+  async function loadRekening() {
+    try {
+      rekeningList = await invoke<Rekening[]>("get_semua_rekening");
+    } catch(e) {}
+  }
+
+  async function tambahRekening() {
+    if (!formRekening.kode || !formRekening.uraian) return;
+    submittingRekening = true;
+    try {
+      await invoke("cari_atau_buat_rekening", { kode: formRekening.kode, uraian: formRekening.uraian });
+      formRekening = { kode: "", uraian: "" };
+      showFormRekening = false;
+      await loadRekening();
+    } catch(e) {}
+    finally { submittingRekening = false; }
+  }
+
+  async function importRekening() {
+    if (!importCsv.trim()) return;
+    submittingRekening = true;
+    importResult = "";
+    try {
+      const lines = importCsv.trim().split(String.fromCharCode(10));
+      const rows = lines
+        .map((r: string) => r.replace(String.fromCharCode(13), "").split(",").map((s: string) => s.trim()))
+        .filter((r: string[]) => r.length >= 2 && r[0] && r[1])
+        .map((r: string[]) => [r[0], r[1]] as [string, string]);
+
+      if (rows.length === 0) { importResult = "❌ Tidak ada data valid."; return; }
+      const count = await invoke<number>("import_rekening_bulk", { data: rows });
+      importResult = "✅ " + count + " rekening berhasil diimport.";
+      importCsv = "";
+      showImportRekening = false;
+      await loadRekening();
+    } catch(e) { importResult = "❌ " + String(e); }
+    finally { submittingRekening = false; }
+  }
+
+  async function hapusRekeningMaster(id: number) {
+    if (!confirm("Hapus rekening ini dari master data?")) return;
+    try {
+      await invoke("hapus_rekening", { id });
+      await loadRekening();
+    } catch(e) {}
+  }
+
+  let rekeningFiltered = $derived(
+    cariRekening.length < 2 ? rekeningList :
+    rekeningList.filter(r =>
+      r.kode.toLowerCase().includes(cariRekening.toLowerCase()) ||
+      r.uraian.toLowerCase().includes(cariRekening.toLowerCase())
+    )
+  );
+
   onMount(async () => {
     try {
       const tahunList = await invoke<any[]>("get_tahun_anggaran");
@@ -69,6 +141,7 @@
       }
     } catch(e) { error = String(e); }
     await loadPrograms();
+    await loadRekening();
   });
 
   async function loadPrograms() {
@@ -126,6 +199,7 @@
       formProgram = { kode: "", uraian: "" };
       showFormProgram = false;
       await loadPrograms();
+    await loadRekening();
     } catch (e) {
       error = String(e);
     }
@@ -159,6 +233,7 @@
     try {
       await invoke("toggle_master_program", { id });
       await loadPrograms();
+    await loadRekening();
     } catch (e) { error = String(e); }
   }
 
@@ -196,6 +271,23 @@
   <div class="alert-error">{error}</div>
 {/if}
 
+<!-- Tab switcher -->
+<div style="display:flex; gap:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:24px; width:fit-content;">
+  <button
+    style="padding:8px 20px; font-size:12px; font-weight:600; border:none; cursor:pointer; font-family:inherit; background:{activeTab === 'program' ? 'var(--accent)' : 'transparent'}; color:{activeTab === 'program' ? 'white' : 'var(--text-3)'}; "
+    onclick={() => activeTab = 'program'}
+  >Program & Kegiatan</button>
+  <button
+    style="padding:8px 20px; font-size:12px; font-weight:600; border:none; cursor:pointer; font-family:inherit; background:{activeTab === 'sumber_dana' ? 'var(--accent)' : 'transparent'}; color:{activeTab === 'sumber_dana' ? 'white' : 'var(--text-3)'}; border-left:1px solid var(--border);"
+    onclick={() => activeTab = 'sumber_dana'}
+  >Sumber Dana</button>
+  <button
+    style="padding:8px 20px; font-size:12px; font-weight:600; border:none; cursor:pointer; font-family:inherit; background:{activeTab === 'rekening' ? 'var(--accent)' : 'transparent'}; color:{activeTab === 'rekening' ? 'white' : 'var(--text-3)'}; border-left:1px solid var(--border);"
+    onclick={() => activeTab = 'rekening'}
+  >Rekening {rekeningList.length > 0 ? '(' + rekeningList.length + ')' : ''}</button>
+</div>
+
+{#if activeTab === 'program'}
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
   <span style="font-size:13px; color:var(--text-3);">{programs.length} program terdaftar</span>
   <button class="btn btn-primary" onclick={() => showFormProgram = !showFormProgram}>+ Tambah Program</button>
@@ -317,7 +409,10 @@
   </div>
 {/if}
 
-<div style="margin-top:32px;">
+{/if}
+
+{#if activeTab === 'sumber_dana'}
+<div>
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <div>
       <span class="label">Sumber Dana</span>
@@ -358,3 +453,96 @@
     </div>
   {/if}
 </div>
+
+{/if}
+
+{#if activeTab === 'rekening'}
+<div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div>
+      <span class="label">Rekening</span>
+      <span style="font-size:12px; color:var(--text-3); margin-left:8px;">kode rekening yang pernah dipakai</span>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-ghost" style="font-size:12px;" onclick={() => { showImportRekening = !showImportRekening; showFormRekening = false; }}>⬆ Import CSV</button>
+      <button class="btn btn-primary" style="font-size:12px;" onclick={() => { showFormRekening = !showFormRekening; showImportRekening = false; }}>+ Tambah Rekening</button>
+    </div>
+  </div>
+
+  {#if showImportRekening}
+    <div class="card" style="padding:16px; margin-bottom:12px; max-width:640px;">
+      <div style="font-size:12px; color:var(--text-3); margin-bottom:10px;">
+        Paste data dari Excel — format: <code style="background:var(--surface-2); padding:1px 6px; border-radius:3px;">kode,uraian</code> per baris. Pemisah bisa koma, titik koma, atau tab.
+      </div>
+      <textarea
+        class="input"
+        style="width:100%; height:160px; font-family:monospace; font-size:12px; resize:vertical;"
+        bind:value={importCsv}
+        placeholder="5.1.02.01.001,Belanja Alat Tulis Kantor&#10;5.1.02.01.002,Belanja Kertas dan Bahan Cetak&#10;..."
+      ></textarea>
+      <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+        <button class="btn btn-primary" onclick={importRekening} disabled={submittingRekening || !importCsv.trim()}>
+          {submittingRekening ? 'Mengimport...' : 'Import'}
+        </button>
+        <button class="btn btn-ghost" onclick={() => { showImportRekening = false; importCsv = ''; importResult = ''; }}>Batal</button>
+        {#if importResult}
+          <span style="font-size:12px; color:var(--text-2);">{importResult}</span>
+        {/if}
+      </div>
+    </div>
+  {/if}
+
+  {#if showFormRekening}
+    <div class="card" style="padding:16px; margin-bottom:12px; display:flex; gap:10px; align-items:flex-end; max-width:640px;">
+      <div style="flex:0 0 180px;">
+        <label class="label" style="display:block; margin-bottom:6px;">Kode Rekening</label>
+        <input class="input" bind:value={formRekening.kode} placeholder="5.1.02.01.001" autofocus />
+      </div>
+      <div style="flex:1;">
+        <label class="label" style="display:block; margin-bottom:6px;">Uraian</label>
+        <input class="input" bind:value={formRekening.uraian} placeholder="Belanja Bahan Habis Pakai..." />
+      </div>
+      <button class="btn btn-primary" onclick={tambahRekening} disabled={submittingRekening || !formRekening.kode || !formRekening.uraian}>
+        {submittingRekening ? '...' : 'Simpan'}
+      </button>
+      <button class="btn btn-ghost" onclick={() => showFormRekening = false}>Batal</button>
+    </div>
+  {/if}
+
+  <!-- Search -->
+  {#if rekeningList.length > 0}
+    <div style="margin-bottom:12px; max-width:360px;">
+      <input class="input" bind:value={cariRekening} placeholder="Cari kode atau uraian..." />
+    </div>
+  {/if}
+
+  {#if rekeningList.length === 0}
+    <div class="card" style="padding:24px; text-align:center;">
+      <p style="font-size:12px; color:var(--text-3);">Belum ada rekening. Rekening akan otomatis tersimpan saat dipakai, atau tambah manual di sini.</p>
+    </div>
+  {:else}
+    <div class="card" style="overflow:hidden;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:var(--surface-2); border-bottom:1px solid var(--border);">
+            <th style="text-align:left; padding:10px 16px; color:var(--text-3); font-weight:600; width:180px;">Kode</th>
+            <th style="text-align:left; padding:10px 16px; color:var(--text-3); font-weight:600;">Uraian</th>
+            <th style="padding:10px 16px; width:60px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each rekeningFiltered as rek, i}
+            <tr style="border-bottom:{i < rekeningFiltered.length - 1 ? '1px solid var(--border)' : 'none'};">
+              <td style="padding:10px 16px; font-family:monospace; color:var(--text-3); font-weight:600;">{rek.kode}</td>
+              <td style="padding:10px 16px; color:var(--text);">{rek.uraian}</td>
+              <td style="padding:10px 16px; text-align:right;">
+                <button onclick={() => hapusRekeningMaster(rek.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">✕</button>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</div>
+{/if}

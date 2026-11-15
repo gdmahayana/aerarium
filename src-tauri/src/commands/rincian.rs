@@ -154,7 +154,7 @@ pub fn tambah_rincian_keterangan(conn: &Connection, input: TambahRincianKeterang
 
 pub fn get_rincian_item(conn: &Connection, rincian_keterangan_id: i64) -> Result<Vec<RincianItem>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, rincian_keterangan_id, shs_id, uraian, spesifikasi, volume, satuan, koef2, satuan2, koef3, satuan3, koef4, satuan4, harga, ppn, realisasi, dikunci, urutan, created_at FROM rincian_item WHERE rincian_keterangan_id = ?1 ORDER BY urutan")
+        .prepare("SELECT ri.id, ri.rincian_keterangan_id, ri.shs_id, ri.uraian, ri.spesifikasi, ri.volume, ri.satuan, ri.koef2, ri.satuan2, ri.koef3, ri.satuan3, ri.koef4, ri.satuan4, ri.harga, ri.ppn, ri.realisasi, ri.dikunci, ri.urutan, ri.created_at, ri.pagu_indikatif_id, s.kode FROM rincian_item ri LEFT JOIN shs s ON s.id = ri.shs_id WHERE ri.rincian_keterangan_id = ?1 ORDER BY ri.urutan")
         .map_err(|e| e.to_string())?;
     let result = stmt
         .query_map(rusqlite::params![rincian_keterangan_id], |row| {
@@ -179,6 +179,8 @@ pub fn get_rincian_item(conn: &Connection, rincian_keterangan_id: i64) -> Result
                 dikunci: dikunci != 0,
                 urutan: row.get(17)?,
                 created_at: row.get(18)?,
+                pagu_indikatif_id: row.get(19)?,
+                shs_kode: row.get(20)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -191,7 +193,7 @@ pub fn tambah_rincian_item(conn: &Connection, input: TambahRincianItemInput) -> 
     let ppn = input.ppn.unwrap_or(0.0);
     let urutan = input.urutan.unwrap_or(0);
     conn.execute(
-        "INSERT INTO rincian_item (rincian_keterangan_id, shs_id, uraian, spesifikasi, volume, satuan, koef2, satuan2, koef3, satuan3, koef4, satuan4, harga, ppn, urutan) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+        "INSERT INTO rincian_item (rincian_keterangan_id, shs_id, uraian, spesifikasi, volume, satuan, koef2, satuan2, koef3, satuan3, koef4, satuan4, harga, ppn, urutan, pagu_indikatif_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         rusqlite::params![
             input.rincian_keterangan_id,
             input.shs_id,
@@ -208,6 +210,7 @@ pub fn tambah_rincian_item(conn: &Connection, input: TambahRincianItemInput) -> 
             input.harga,
             ppn,
             urutan,
+            input.pagu_indikatif_id,
         ],
     ).map_err(|e| format!("Gagal tambah item: {}", e))?;
     Ok(conn.last_insert_rowid())
@@ -362,4 +365,12 @@ pub fn terapkan_pemetaan_shs(
     }
 
     Ok(total_updated)
+}
+
+pub fn set_pagu_indikatif_item(conn: &Connection, item_id: i64, pagu_indikatif_id: Option<i64>) -> Result<(), String> {
+    conn.execute(
+        "UPDATE rincian_item SET pagu_indikatif_id = ?1 WHERE id = ?2",
+        rusqlite::params![pagu_indikatif_id, item_id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
 }
