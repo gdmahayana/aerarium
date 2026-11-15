@@ -438,6 +438,38 @@ fn update_rincian_item(id: i64, uraian: String, spesifikasi: Option<String>, vol
 }
 
 #[tauri::command]
+fn get_realisasi_summary(dokumen_id: i64) -> Result<Vec<(i64, f64, f64)>, String> {
+    // Return: (dokumen_sub_kegiatan_id, total_anggaran, total_realisasi)
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("
+        SELECT
+            dsk.id,
+            COALESCE(SUM(
+                ri.volume
+                * COALESCE(ri.koef2, 1.0)
+                * COALESCE(ri.koef3, 1.0)
+                * COALESCE(ri.koef4, 1.0)
+                * ri.harga
+                * (1.0 + CASE WHEN ri.ppn > 0 THEN 0.11 ELSE 0.0 END)
+            ), 0.0) AS total_anggaran,
+            COALESCE(SUM(ri.realisasi), 0.0) AS total_realisasi
+        FROM dokumen_sub_kegiatan dsk
+        LEFT JOIN rincian_rekening rrek ON rrek.dokumen_sub_kegiatan_id = dsk.id
+        LEFT JOIN rincian_pengelompokan rp ON rp.rincian_rekening_id = rrek.id
+        LEFT JOIN rincian_keterangan rk ON rk.rincian_pengelompokan_id = rp.id
+        LEFT JOIN rincian_item ri ON ri.rincian_keterangan_id = rk.id
+        WHERE dsk.dokumen_id = ?1
+        GROUP BY dsk.id
+    ").map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(rusqlite::params![dokumen_id], |row| {
+        Ok((row.get::<_,i64>(0)?, row.get::<_,f64>(1)?, row.get::<_,f64>(2)?))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+    Ok(rows)
+}
+
+#[tauri::command]
 fn update_realisasi_item(id: i64, realisasi: f64) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     conn.execute(
@@ -573,6 +605,7 @@ pub fn run() {
             hapus_rincian_keterangan,
             update_rincian_item,
             hapus_rincian_item,
+            get_realisasi_summary,
             update_realisasi_item,
             cek_status_rincian,
             get_shs_rencana_dipakai,

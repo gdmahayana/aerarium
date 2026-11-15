@@ -71,6 +71,9 @@
   let exporting     = $state(false);
   let exportMsg     = $state("");
 
+  // Realisasi summary
+  let realisasiMap = $state<Record<number, {anggaran: number, realisasi: number}>>({});
+
   // Pagu Indikatif
   let activeTab       = $state<"subkegiatan"|"alokasi">("subkegiatan");
   let paguList        = $state<PaguIndikatif[]>([]);
@@ -130,6 +133,7 @@
           invoke<SumberDana[]>("get_sumber_dana", { tahunAnggaranId: tahunAktif.id }),
         ]);
         await muatStatus();
+      await muatRealisasi();
       if (dokumen && dokumen.jenis === "Pagu Indikatif") {
         await muatPagu();
       }
@@ -137,6 +141,15 @@
     } catch(e) { error = String(e); }
     finally { loading = false; }
   });
+
+  async function muatRealisasi() {
+    try {
+      const hasil = await invoke<[number, number, number][]>("get_realisasi_summary", { dokumenId });
+      const map: Record<number, {anggaran: number, realisasi: number}> = {};
+      for (const [id, anggaran, realisasi] of hasil) map[id] = { anggaran, realisasi };
+      realisasiMap = map;
+    } catch(e) {}
+  }
 
   async function muatPagu() {
     try {
@@ -259,6 +272,7 @@
       dskList = await invoke<DokumenSubKegiatan[]>("get_dokumen_sub_kegiatan", { dokumenId });
       showForm = false;
       await muatStatus();
+      await muatRealisasi();
       if (dokumen && dokumen.jenis === "Pagu Indikatif") {
         await muatPagu();
       }
@@ -291,6 +305,7 @@
       dskList = await invoke<DokumenSubKegiatan[]>("get_dokumen_sub_kegiatan", { dokumenId });
       editingId = null;
       await muatStatus();
+      await muatRealisasi();
       if (dokumen && dokumen.jenis === "Pagu Indikatif") {
         await muatPagu();
       }
@@ -325,6 +340,7 @@
       await invoke('toggle_bebas_shs', { id });
       dskList = await invoke('get_dokumen_sub_kegiatan', { dokumenId });
       await muatStatus();
+      await muatRealisasi();
       if (dokumen && dokumen.jenis === "Pagu Indikatif") {
         await muatPagu();
       }
@@ -464,6 +480,20 @@
             <div style="font-size:10px; color:#856404; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;">Belum SHS Resmi</div>
             <div style="font-size:18px; font-weight:700; color:#fbbf24;">
               {Object.values(statusRincian).filter(v => v).length} sub keg
+            </div>
+          </div>
+        {/if}
+        {#if (dokumen.jenis === "DPA-SKPD" || dokumen.jenis === "DPPA-SKPD" || dokumen.jenis === "RKA-SKPD Perubahan") && Object.values(realisasiMap).some(r => r.realisasi > 0)}
+          {@const totalReal = Object.values(realisasiMap).reduce((s, r) => s + r.realisasi, 0)}
+          {@const totalAng = Object.values(realisasiMap).reduce((s, r) => s + r.anggaran, 0)}
+          {@const pctTotal = totalAng > 0 ? Math.min(100, Math.round((totalReal / totalAng) * 100)) : 0}
+          <div>
+            <div style="font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;">Realisasi</div>
+            <div style="font-size:18px; font-weight:700; color:#4ade80;">{pctTotal}%</div>
+          </div>
+          <div style="display:flex; align-items:center;">
+            <div style="width:80px; height:6px; background:{cfg.warna}22; border-radius:3px; overflow:hidden;">
+              <div style="height:100%; width:{pctTotal}%; background:#4ade80; border-radius:3px;"></div>
             </div>
           </div>
         {/if}
@@ -773,6 +803,18 @@
                   <span style="font-size:12px; color:{cfg.warna}; font-weight:600;">{formatRp(dsk.pagu)}</span>
                 {:else}
                   <span style="font-size:12px; color:var(--text-3); font-style:italic;">pagu belum diisi</span>
+                {/if}
+                {#if (dokumen.jenis === "DPA-SKPD" || dokumen.jenis === "DPPA-SKPD" || dokumen.jenis === "RKA-SKPD Perubahan") && realisasiMap[dsk.id]}
+                  {@const r = realisasiMap[dsk.id]}
+                  {@const pct = r.anggaran > 0 ? Math.min(100, Math.round((r.realisasi / r.anggaran) * 100)) : 0}
+                  {#if r.realisasi > 0}
+                    <span style="font-size:11px; color:#4ade80;">✓ {formatRp(r.realisasi)} ({pct}%)</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <div style="width:60px; height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden;">
+                        <div style="height:100%; width:{pct}%; background:#4ade80; border-radius:2px;"></div>
+                      </div>
+                    </div>
+                  {/if}
                 {/if}
                 {#if dsk.sumber_dana_id}
                   {@const sd = sumberDanaList.find(s => s.id === dsk.sumber_dana_id)}

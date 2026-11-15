@@ -408,8 +408,12 @@
     catch(e) { error = String(e); }
   }
 
-  async function hapusItem(id: number) {
-    if (!confirm("Hapus item ini?")) return;
+  async function hapusItem(id: number, realisasi: number) {
+    if (realisasi > 0) {
+      if (!confirm("Item ini sudah memiliki realisasi " + formatRp(realisasi) + ". Yakin ingin menghapus?")) return;
+    } else {
+      if (!confirm("Hapus item ini?")) return;
+    }
     try { await invoke("hapus_rincian_item", { id }); await muat(); }
     catch(e) { error = String(e); }
   }
@@ -892,7 +896,7 @@
                   >{item.realisasi > 0 ? formatRp(item.realisasi) : 'Realisasi'}</button>
                 {/if}
                 <button onclick={() => bukaEditItem(item)} class="btn btn-ghost" style="font-size:11px;">Edit</button>
-                <button onclick={() => hapusItem(item.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
+                <button onclick={() => hapusItem(item.id, item.realisasi)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
                 {/if}
               </div>
             </div>
