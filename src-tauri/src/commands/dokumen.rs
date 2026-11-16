@@ -179,8 +179,8 @@ Ok(data.to_string())
 pub fn jadikan_rka(conn: &Connection, kertas_kerja_id: i64) -> Result<i64, String> {
     let asal = get_by_id(conn, kertas_kerja_id)?;
 
-    if asal.jenis.as_str() != "Kertas Kerja" {
-        return Err("Hanya Kertas Kerja yang bisa dijadikan RKA-SKPD".to_string());
+    if asal.jenis.as_str() != "Kertas Kerja" && asal.jenis.as_str() != "Pagu Indikatif" {
+        return Err("Hanya Kertas Kerja atau Pagu Indikatif yang bisa dijadikan RKA-SKPD".to_string());
     }
 
     // Buat dokumen RKA baru
@@ -329,6 +329,28 @@ pub fn jadikan_rka(conn: &Connection, kertas_kerja_id: i64) -> Result<i64, Strin
                     }
                 }
             }
+        }
+    }
+
+    // Salin pagu_indikatif jika asal adalah Pagu Indikatif
+    if asal.jenis.as_str() == "Pagu Indikatif" {
+        let mut stmt = conn.prepare(
+            "SELECT kode_rekening, uraian, pagu FROM pagu_indikatif WHERE dokumen_id = ?1"
+        ).map_err(|e| e.to_string())?;
+        let pagu_list: Vec<(Option<String>, String, f64)> = stmt.query_map(
+            rusqlite::params![kertas_kerja_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            }
+        ).map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+        for (kode_rekening, uraian, pagu) in pagu_list {
+            conn.execute(
+                "INSERT INTO pagu_indikatif (dokumen_id, kode_rekening, uraian, pagu)
+                 VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![rka_id, kode_rekening, uraian, pagu],
+            ).map_err(|e| e.to_string())?;
         }
     }
 
