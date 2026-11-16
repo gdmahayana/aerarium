@@ -1,8 +1,23 @@
 <script lang="ts">
   import "../app.css";
   import { page } from "$app/stores";
+  import { onMount } from "svelte";
 
   let { children } = $props();
+
+  let theme = $state<"dark"|"light">("dark");
+
+  onMount(() => {
+    const saved = localStorage.getItem("aerarium-theme") || "dark";
+    theme = saved as "dark"|"light";
+    document.documentElement.setAttribute("data-theme", saved);
+  });
+
+  function toggleTheme() {
+    theme = theme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("aerarium-theme", theme);
+  }
 
   const navItems = [
     { href: "/", label: "Dashboard" },
@@ -31,8 +46,13 @@
       {/each}
     </nav>
 
-    <div style="padding:12px 16px; border-top:1px solid var(--border);">
+    <div style="padding:12px 16px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
       <div style="font-size:11px; color:var(--text-3); font-weight:500;">v0.1.0-dev · AGPL-3.0</div>
+      <button
+        onclick={toggleTheme}
+        style="background:none; border:1px solid var(--border); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:12px; color:var(--text-3); font-family:inherit; display:flex; align-items:center; gap:4px;"
+        title="Toggle tema"
+      >{theme === 'dark' ? '☀' : '🌙'}</button>
     </div>
   </aside>
 

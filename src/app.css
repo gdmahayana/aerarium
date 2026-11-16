@@ -21,6 +21,20 @@
     --warning: #fbbf24;
   }
 
+  [data-theme="light"] {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-2: #475569;
+    --text-3: #94a3b8;
+    --accent: #0ea5e9;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -59,6 +73,37 @@
     background: #0a1120;
     border-right: 1px solid var(--border);
   }
+
+  [data-theme="light"] .sidebar {
+    background: #1e293b;
+    color: #f1f5f9;
+  }
+
+  [data-theme="light"] .sidebar .nav-item {
+    color: #94a3b8;
+  }
+
+  [data-theme="light"] .sidebar .nav-item:hover,
+  [data-theme="light"] .sidebar .nav-item.active {
+    background: #293548;
+    color: #f1f5f9;
+  }
+
+  [data-theme="light"] .btn-primary {
+    color: #ffffff;
+  }
+
+  [data-theme="light"] .alert-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+  }
+
+  [data-theme="light"] .badge-draft { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+  [data-theme="light"] .badge-konsep { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+  [data-theme="light"] .badge-ditetapkan { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+  [data-theme="light"] .badge-dikunci { background: #fef9c3; color: #a16207; border-color: #fde047; }
+  [data-theme="light"] .badge-diarsipkan { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
 
   .btn {
     display: inline-flex;
