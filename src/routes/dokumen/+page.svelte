@@ -148,6 +148,56 @@
     },
   ];
 
+  // ── Git-graph: bangun rantai dokumen dari asal_id ──────────────────────────
+  const jenisWarna: Record<string, string> = {
+    'Kertas Kerja':        '#6366f1',
+    'Pagu Indikatif':      '#0ea5e9',
+    'RKA-SKPD':            '#10b981',
+    'DPA-SKPD':            '#f59e0b',
+    'RKA-SKPD Perubahan':  '#10b981',
+    'DPPA-SKPD':           '#f59e0b',
+    'Perubahan DPA-SKPD':  '#ef4444',
+    'Perubahan DPPA-SKPD': '#ef4444',
+  };
+  const jenisIcon: Record<string, string> = {
+    'Kertas Kerja':        '✦',
+    'Pagu Indikatif':      '◈',
+    'RKA-SKPD':            '▸',
+    'DPA-SKPD':            '▸',
+    'RKA-SKPD Perubahan':  '▸',
+    'DPPA-SKPD':           '▸',
+    'Perubahan DPA-SKPD':  '⟳',
+    'Perubahan DPPA-SKPD': '⟳',
+  };
+
+  // Kembalikan array of chains; tiap chain = array Dokumen terurut dari root
+  function buildChains(list: Dokumen[]): Dokumen[][] {
+    const byId = new Map(list.map(d => [d.id, d]));
+    const hasParent = new Set(list.filter(d => d.asal_id !== null).map(d => d.asal_id!));
+    // Root = dokumen yang tidak jadi anak siapapun
+    const roots = list.filter(d => !hasParent.has(d.id) || d.asal_id === null);
+
+    function buildChain(root: Dokumen): Dokumen[] {
+      const chain: Dokumen[] = [root];
+      let current = root;
+      while (true) {
+        const child = list.find(d => d.asal_id === current.id);
+        if (!child) break;
+        chain.push(child);
+        current = child;
+      }
+      return chain;
+    }
+
+    // Hanya tampilkan chain yang panjangnya > 1 atau semua kalau mau
+    return roots
+      .map(r => buildChain(r))
+      .filter(c => c.length > 1)
+      .sort((a, b) => b.length - a.length);
+  }
+
+  let chains = $derived(buildChains(dokumenList));
+
   // Filter dari sidebar
   const filterMap: Record<string, string> = {
     persiapan: "Persiapan",
@@ -301,5 +351,71 @@
         </div>
       </div>
     {/each}
+    <!-- ── Git-graph rantai dokumen ──────────────────────────────────────── -->
+    {#if chains.length > 0}
+      <div style="margin-top:12px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+          <span class="label">Rantai Dokumen</span>
+          <div style="flex:1; height:1px; background:var(--border);"></div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          {#each chains as chain}
+            <div style="
+              display:flex; align-items:center; gap:0;
+              padding:14px 20px; background:var(--surface-2);
+              border:1px solid var(--border); border-radius:10px;
+              overflow-x:auto;
+            ">
+              {#each chain as dok, i}
+                {@const warna = jenisWarna[dok.jenis] || '#94a3b8'}
+                {@const icon = jenisIcon[dok.jenis] || '▸'}
+                {@const st = statusStyle[dok.status] || statusStyle.draft}
+
+                <!-- Node -->
+                <button
+                  onclick={() => goto('/dokumen/' + dok.id)}
+                  style="
+                    display:flex; flex-direction:column; align-items:center; gap:6px;
+                    padding:10px 14px; border-radius:8px; cursor:pointer;
+                    background:{warna}10; border:1.5px solid {warna}44;
+                    min-width:120px; flex-shrink:0;
+                    font-family:inherit; transition:background 0.15s;
+                  "
+                  onmouseenter={(e) => (e.currentTarget as HTMLElement).style.background = warna + '22'}
+                  onmouseleave={(e) => (e.currentTarget as HTMLElement).style.background = warna + '10'}
+                >
+                  <div style="display:flex; align-items:center; gap:5px;">
+                    <span style="color:{warna}; font-weight:800; font-size:12px;">{icon}</span>
+                    <span style="
+                      font-size:9px; font-weight:700; font-family:monospace;
+                      color:{warna}; background:{warna}20; padding:1px 5px; border-radius:3px;
+                    ">v{dok.versi}</span>
+                  </div>
+                  <div style="font-size:11px; font-weight:700; color:var(--text); text-align:center; line-height:1.3;">
+                    {dok.jenis}
+                  </div>
+                  {#if dok.nomor_se}
+                    <div style="font-size:10px; color:var(--text-3); text-align:center;">SE: {dok.nomor_se}</div>
+                  {/if}
+                  <span style="
+                    font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px;
+                    background:{st.bg}; color:{st.color}; letter-spacing:0.05em;
+                  ">{st.label}</span>
+                </button>
+
+                <!-- Panah antar node -->
+                {#if i < chain.length - 1}
+                  <div style="
+                    display:flex; align-items:center; padding:0 4px;
+                    color:var(--text-3); font-size:14px; flex-shrink:0;
+                  ">→</div>
+                {/if}
+              {/each}
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   </div>
 {/if}
