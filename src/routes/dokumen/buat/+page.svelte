@@ -12,7 +12,7 @@
   let submitting = $state(false);
   let error = $state("");
 
-  const jenisValid = ["Kertas Kerja","Pagu Indikatif","RKA-SKPD","DPA-SKPD","RKA-SKPD Perubahan","DPPA-SKPD","Perubahan DPA-SKPD","Perubahan DPPA-SKPD"];
+  const jenisValid = ["Kertas Kerja","Pagu Indikatif","RKA-SKPD","DPA-SKPD","RKA-SKPD Perubahan","DPPA-SKPD"];
   const jenisFromUrl = $page.url.searchParams.get("jenis") || "";
   let jenis = $state(jenisValid.includes(jenisFromUrl) ? jenisFromUrl : "Kertas Kerja");
   let nomor_se = $state("");
@@ -23,13 +23,8 @@
   let asal_keterangan = $state("");
   let dokumenAsalList = $state<DokumenAsal[]>([]);
 
-  const butuhAsal = $derived(["DPA-SKPD", "DPPA-SKPD", "Perubahan DPA-SKPD", "Perubahan DPPA-SKPD"].includes(jenis));
-  const jenisDibutuhkan = $derived(
-    jenis === "DPA-SKPD" ? "RKA-SKPD" :
-    jenis === "DPPA-SKPD" ? "RKA-SKPD Perubahan" :
-    jenis === "Perubahan DPA-SKPD" ? "DPA-SKPD" :
-    jenis === "Perubahan DPPA-SKPD" ? "DPPA-SKPD" : ""
-  );
+  const butuhAsal = $derived(["DPA-SKPD", "DPPA-SKPD"].includes(jenis));
+  const jenisDibutuhkan = $derived(jenis === "DPA-SKPD" ? "RKA-SKPD" : "RKA-SKPD Perubahan");
   const adaSE = $derived(!["Kertas Kerja", "Pagu Indikatif"].includes(jenis));
 
   const jenisList = [
@@ -69,18 +64,7 @@
       warna: "#f59e0b",
       desc: "Dokumen Pelaksanaan Perubahan Anggaran",
     },
-    {
-      value: "Perubahan DPA-SKPD",
-      icon: "⟳",
-      warna: "#ef4444",
-      desc: "Pergeseran anggaran dari DPA yang sudah ditetapkan",
-    },
-    {
-      value: "Perubahan DPPA-SKPD",
-      icon: "⟳",
-      warna: "#ef4444",
-      desc: "Pergeseran anggaran dari DPPA yang sudah ditetapkan",
-    },
+
   ];
 
   onMount(async () => {

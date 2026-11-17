@@ -8,8 +8,6 @@ export type JenisDokumen =
   | 'DPA-SKPD'
   | 'RKA-SKPD Perubahan'
   | 'DPPA-SKPD'
-  | 'Perubahan DPA-SKPD'
-  | 'Perubahan DPPA-SKPD';
 
 export type StatusDokumen = 'draft' | 'konsep' | 'ditetapkan' | 'dikunci' | 'diarsipkan';
 
@@ -34,8 +32,6 @@ export const JENIS_CONFIG: Record<JenisDokumen, JenisConfig> = {
   'DPA-SKPD':            { warna: '#f59e0b', warnaGlow: '#f59e0b15', icon: '▸', tagline: 'Dokumen Pelaksanaan Anggaran',                adaSE: true  },
   'RKA-SKPD Perubahan':  { warna: '#10b981', warnaGlow: '#10b98115', icon: '▸', tagline: 'Rencana Kerja & Anggaran Perubahan',          adaSE: true  },
   'DPPA-SKPD':           { warna: '#f59e0b', warnaGlow: '#f59e0b15', icon: '▸', tagline: 'Dokumen Pelaksanaan Perubahan Anggaran',      adaSE: true  },
-  'Perubahan DPA-SKPD':  { warna: '#ef4444', warnaGlow: '#ef444415', icon: '⟳', tagline: 'Pergeseran Anggaran · DPA',                  adaSE: true  },
-  'Perubahan DPPA-SKPD': { warna: '#ef4444', warnaGlow: '#ef444415', icon: '⟳', tagline: 'Pergeseran Anggaran · DPPA',                 adaSE: true  },
 };
 
 export const STATUS_CONFIG: Record<StatusDokumen, StatusConfig> = {
@@ -84,9 +80,7 @@ export const TAHAPAN = [
     group: 'Perubahan',
     items: [
       { jenis: 'RKA-SKPD Perubahan',  warnaGlow: '#10b98130', tunggal: false, next: 'DPPA-SKPD'          },
-      { jenis: 'DPPA-SKPD',           warnaGlow: '#f59e0b30', tunggal: true,  next: 'Perubahan DPA-SKPD' },
-      { jenis: 'Perubahan DPA-SKPD',  warnaGlow: '#ef444430', tunggal: false, next: null                 },
-      { jenis: 'Perubahan DPPA-SKPD', warnaGlow: '#ef444430', tunggal: false, next: null                 },
+      { jenis: 'DPPA-SKPD',           warnaGlow: '#f59e0b30', tunggal: true,  next: null                 },
     ],
   },
 ];

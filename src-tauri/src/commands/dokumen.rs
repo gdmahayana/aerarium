@@ -69,30 +69,6 @@ pub fn buat(conn: &Connection, input: BuatDokumenInput) -> Result<i64, String> {
                 }
             }
         }
-        JenisDokumen::PerubahanDpaSkpd => {
-            let asal_id = input.asal_id.ok_or(
-                "Perubahan DPA-SKPD harus memiliki asal dokumen DPA-SKPD".to_string()
-            )?;
-            let asal = get_by_id(conn, asal_id)?;
-            if asal.jenis != JenisDokumen::DpaSkpd {
-                return Err("Asal Perubahan DPA-SKPD harus berupa DPA-SKPD".to_string());
-            }
-            if asal.tahun_anggaran_id != input.tahun_anggaran_id {
-                return Err("Asal dokumen harus dari tahun anggaran yang sama".to_string());
-            }
-        }
-        JenisDokumen::PerubahanDppaSkpd => {
-            let asal_id = input.asal_id.ok_or(
-                "Perubahan DPPA-SKPD harus memiliki asal dokumen DPPA-SKPD".to_string()
-            )?;
-            let asal = get_by_id(conn, asal_id)?;
-            if asal.jenis != JenisDokumen::DppaSkpd {
-                return Err("Asal Perubahan DPPA-SKPD harus berupa DPPA-SKPD".to_string());
-            }
-            if asal.tahun_anggaran_id != input.tahun_anggaran_id {
-                return Err("Asal dokumen harus dari tahun anggaran yang sama".to_string());
-            }
-        }
         JenisDokumen::KertasKerja => {}
         JenisDokumen::PaguIndikatif => {}
         JenisDokumen::RkaSkpdPerubahan => {}
