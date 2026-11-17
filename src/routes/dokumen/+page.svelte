@@ -311,7 +311,7 @@
                 </div>
                 {#if !ada}
                   <a
-                    href="/dokumen/buat"
+                    href="/dokumen/buat?jenis={encodeURIComponent(tahap.jenis)}"
                     style="font-size:11px; color:var(--text-3); padding:4px 10px; border:1px dashed var(--border); border-radius:5px; text-decoration:none;"
                   >+ Buat</a>
                 {/if}

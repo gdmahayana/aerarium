@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
 
   interface TahunAnggaran { id: number; tahun: number; aktif: boolean; }
   interface DokumenAsal { id: number; jenis: string; versi: number; nomor_se: string | null; status: string; }
@@ -11,7 +12,9 @@
   let submitting = $state(false);
   let error = $state("");
 
-  let jenis = $state("Kertas Kerja");
+  const jenisValid = ["Kertas Kerja","Pagu Indikatif","RKA-SKPD","DPA-SKPD","RKA-SKPD Perubahan","DPPA-SKPD","Perubahan DPA-SKPD","Perubahan DPPA-SKPD"];
+  const jenisFromUrl = $page.url.searchParams.get("jenis") || "";
+  let jenis = $state(jenisValid.includes(jenisFromUrl) ? jenisFromUrl : "Kertas Kerja");
   let nomor_se = $state("");
   let tanggal_se = $state("");
   let catatan = $state("");
