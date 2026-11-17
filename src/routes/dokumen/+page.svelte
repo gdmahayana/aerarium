@@ -209,6 +209,35 @@
   };
   let activeGroup = $derived(filterMap[$page.url.searchParams.get("filter") || ""] || null);
 
+  let actionLoading = $state<number | null>(null);
+
+  async function quickJadikanDpa(rkaId: number) {
+    if (!confirm('Jadikan RKA-SKPD ini sebagai DPA-SKPD?')) return;
+    actionLoading = rkaId;
+    try {
+      const id = await invoke<number>('jadikan_dpa', { rkaId });
+      goto('/dokumen/' + id);
+    } catch(e) { error = String(e); actionLoading = null; }
+  }
+
+  async function quickJadikanDppa(rkapId: number) {
+    if (!confirm('Jadikan RKA-SKPD Perubahan ini sebagai DPPA-SKPD?')) return;
+    actionLoading = rkapId;
+    try {
+      const id = await invoke<number>('jadikan_dppa', { rkapId });
+      goto('/dokumen/' + id);
+    } catch(e) { error = String(e); actionLoading = null; }
+  }
+
+  async function quickPergeseran(dokumenId: number) {
+    if (!confirm('Buat pergeseran anggaran? Dokumen ini akan dikunci dan rinciannya disalin ke versi baru.')) return;
+    actionLoading = dokumenId;
+    try {
+      const id = await invoke<number>('buat_pergeseran', { dokumenId });
+      goto('/dokumen/' + id);
+    } catch(e) { error = String(e); actionLoading = null; }
+  }
+
   $effect(() => {
     if (activeGroup) {
       tick().then(() => {
@@ -336,12 +365,33 @@
                       </div>
 
                       <!-- Kanan: status + tombol -->
-                      <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
                         <span style="
                           font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;
                           background:{(statusStyle[dok.status] || statusStyle.draft).bg}; color:{(statusStyle[dok.status] || statusStyle.draft).color};
                           letter-spacing:0.05em; text-transform:uppercase;
                         ">{(statusStyle[dok.status] || statusStyle.draft).label}</span>
+                        {#if tahap.jenis === 'RKA-SKPD' && (dok.status === 'draft' || dok.status === 'konsep')}
+                          <button
+                            onclick={(e) => { e.stopPropagation(); quickJadikanDpa(dok.id); }}
+                            disabled={actionLoading === dok.id}
+                            style="font-size:11px; padding:3px 9px; border-radius:4px; cursor:pointer; border:1px solid #f59e0b44; background:#f59e0b10; color:#f59e0b; font-family:inherit;"
+                          >{actionLoading === dok.id ? '...' : '→ DPA'}</button>
+                        {/if}
+                        {#if tahap.jenis === 'RKA-SKPD Perubahan' && (dok.status === 'draft' || dok.status === 'konsep')}
+                          <button
+                            onclick={(e) => { e.stopPropagation(); quickJadikanDppa(dok.id); }}
+                            disabled={actionLoading === dok.id}
+                            style="font-size:11px; padding:3px 9px; border-radius:4px; cursor:pointer; border:1px solid #f59e0b44; background:#f59e0b10; color:#f59e0b; font-family:inherit;"
+                          >{actionLoading === dok.id ? '...' : '→ DPPA'}</button>
+                        {/if}
+                        {#if (tahap.jenis === 'DPA-SKPD' || tahap.jenis === 'DPPA-SKPD') && (dok.status === 'ditetapkan' || dok.status === 'dikunci')}
+                          <button
+                            onclick={(e) => { e.stopPropagation(); quickPergeseran(dok.id); }}
+                            disabled={actionLoading === dok.id}
+                            style="font-size:11px; padding:3px 9px; border-radius:4px; cursor:pointer; border:1px solid #ef444444; background:#ef444410; color:#ef4444; font-family:inherit;"
+                          >{actionLoading === dok.id ? '...' : '⟳ Geser'}</button>
+                        {/if}
                         <span style="font-size:12px; color:var(--text-3);">→</span>
                       </div>
                     </div>
