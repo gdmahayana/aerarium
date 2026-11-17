@@ -25,27 +25,7 @@
       items: [
         { href: "/", label: "Dashboard" },
         { href: "/tahun-anggaran", label: "Tahun Anggaran" },
-      ]
-    },
-    {
-      label: "Persiapan",
-      items: [
-        { href: "/dokumen?filter=persiapan", label: "Kertas Kerja" },
-        { href: "/dokumen?filter=pagu", label: "Pagu Indikatif" },
-      ]
-    },
-    {
-      label: "Siklus APBD",
-      items: [
-        { href: "/dokumen?filter=rka", label: "RKA-SKPD" },
-        { href: "/dokumen?filter=dpa", label: "DPA-SKPD" },
-        { href: "/dokumen?filter=perubahan", label: "Perubahan APBD" },
-        { href: "/dokumen?filter=alur", label: "Alur Dokumen" },
-      ]
-    },
-    {
-      label: "Data",
-      items: [
+        { href: "/dokumen", label: "Dokumen" },
         { href: "/ssh", label: "Database SHS" },
         { href: "/master-data", label: "Master Data" },
       ]
@@ -61,20 +41,13 @@
     </div>
 
     <nav style="flex:1; padding:12px 8px; overflow-y:auto;">
-      {#each navGroups as group}
-        {#if group.label}
-          <div style="font-size:10px; font-weight:700; color:var(--text-3); letter-spacing:0.08em; text-transform:uppercase; padding:12px 10px 4px; margin-top:4px;">
-            {group.label}
-          </div>
-        {/if}
-        {#each group.items as item}
-          <a
-            href={item.href}
-            class="nav-item {$page.url.pathname + $page.url.search === item.href || ($page.url.pathname === '/dokumen' && item.href === '/dokumen?filter=rka' && !$page.url.search) ? 'active' : ''}"
-          >
-            {item.label}
-          </a>
-        {/each}
+      {#each navGroups[0].items as item}
+        <a
+          href={item.href}
+          class="nav-item {$page.url.pathname === item.href ? 'active' : ''}"
+        >
+          {item.label}
+        </a>
       {/each}
     </nav>
 

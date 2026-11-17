@@ -2,8 +2,6 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { page } from "$app/stores";
-  import { tick } from "svelte";
   import { jenisConfig, statusConfig, TRANSISI_STATUS, TAHAPAN, type StatusDokumen } from "$lib/dokumen-config";
 
   interface Dokumen {
@@ -90,17 +88,7 @@
   // Tab aktif
   let activeTab = $state<'dokumen' | 'alur'>('dokumen');
 
-  // Filter dari sidebar
-  const filterMap: Record<string, { group: string; tab: 'dokumen' | 'alur' }> = {
-    persiapan: { group: 'Persiapan',    tab: 'dokumen' },
-    pagu:      { group: 'Persiapan',    tab: 'dokumen' },
-    rka:       { group: 'Penganggaran', tab: 'dokumen' },
-    dpa:       { group: 'Penganggaran', tab: 'dokumen' },
-    perubahan: { group: 'Perubahan',    tab: 'dokumen' },
-    alur:      { group: '',             tab: 'alur'    },
-  };
-  let activeFilter = $derived(filterMap[$page.url.searchParams.get('filter') || ''] || null);
-  let activeGroup  = $derived(activeFilter?.group || null);
+
 
   let actionLoading = $state<number | null>(null);
 
@@ -143,17 +131,7 @@
     } catch(e) { error = String(e); actionLoading = null; }
   }
 
-  $effect(() => {
-    if (activeFilter) {
-      activeTab = activeFilter.tab;
-      if (activeFilter.tab === 'dokumen' && activeFilter.group) {
-        tick().then(() => {
-          const el = document.getElementById('group-' + activeFilter!.group);
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-      }
-    }
-  });
+
 </script>
 
 <div class="page-header" style="display:flex; align-items:start; justify-content:space-between;">
@@ -193,9 +171,9 @@
     {#each tahapan as group}
       <div>
         <!-- Group label -->
-        <div id="group-{group.group}" style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-          <span class="label" style="color:{activeGroup === group.group ? 'var(--accent)' : ''};">{group.group}</span>
-          <div style="flex:1; height:1px; background:{activeGroup === group.group ? 'var(--accent)' : 'var(--border)'};opacity:{activeGroup === group.group ? 0.5 : 1};"></div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+          <span class="label">{group.group}</span>
+          <div style="flex:1; height:1px; background:var(--border);"></div>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:8px;">
