@@ -91,6 +91,11 @@
 
 
   let actionLoading = $state<number | null>(null);
+  let statusPopover = $state<number | null>(null);
+
+  function handleClickOutside(e: MouseEvent) {
+    if (statusPopover !== null) statusPopover = null;
+  }
 
   async function quickJadikanDpa(rkaId: number) {
     if (!confirm('Jadikan RKA-SKPD ini sebagai DPA-SKPD?')) return;
@@ -134,6 +139,7 @@
 
 </script>
 
+<div onclick={handleClickOutside}>
 <div class="page-header" style="display:flex; align-items:start; justify-content:space-between;">
   <div>
     <h2>Dokumen Anggaran</h2>
@@ -220,6 +226,8 @@
               {#if ada}
                 <div style="display:flex; flex-direction:column; gap:0;">
                   {#each doks as dok, i}
+                    {@const sc = statusConfig(dok.status)}
+                    {@const transisi = TRANSISI_STATUS[dok.status as StatusDokumen] || []}
                     <div
                       style="
                         display:flex; align-items:center; justify-content:space-between;
@@ -265,26 +273,33 @@
 
                       <!-- Kanan: status + tombol -->
                       <div style="display:flex; align-items:center; gap:8px;">
-                        {#if TRANSISI_STATUS[dok.status as StatusDokumen]?.length > 0}
-                          <select
-                            value={dok.status}
-                            onchange={(e) => { e.stopPropagation(); ubahStatus(dok.id, (e.target as HTMLSelectElement).value); }}
-                            onclick={(e) => e.stopPropagation()}
+                        <div style="position:relative;">
+                          <button
+                            onclick={(e) => { e.stopPropagation(); statusPopover = statusPopover === dok.id ? null : dok.id; }}
                             disabled={actionLoading === dok.id}
-                            style="font-size:11px; padding:2px 6px; border-radius:4px; cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); font-family:inherit;"
+                            style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px; cursor:{transisi.length > 0 ? 'pointer' : 'default'}; border:1px solid {sc.color}44; background:{sc.bg}; color:{sc.color}; font-family:inherit; letter-spacing:0.05em; text-transform:uppercase; display:flex; align-items:center; gap:4px;"
                           >
-                            <option value={dok.status}>{statusConfig(dok.status).label}</option>
-                            {#each TRANSISI_STATUS[dok.status as StatusDokumen] || [] as s}
-                              <option value={s}>→ {statusConfig(s).label}</option>
-                            {/each}
-                          </select>
-                        {:else}
-                          <span style="
-                            font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;
-                            background:{(statusConfig(dok.status)).bg}; color:{(statusConfig(dok.status)).color};
-                            letter-spacing:0.05em; text-transform:uppercase;
-                          ">{(statusConfig(dok.status)).label}</span>
-                        {/if}
+                            {sc.label}{transisi.length > 0 ? ' ▾' : ''}
+                          </button>
+                          {#if statusPopover === dok.id && transisi.length > 0}
+                            <div
+                              style="position:absolute; right:0; top:calc(100% + 4px); background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; z-index:100; min-width:130px; box-shadow:0 4px 12px #0004;"
+                              onclick={(e) => e.stopPropagation()}
+                            >
+                              {#each transisi as s}
+                                {@const sc2 = statusConfig(s)}
+                                <button
+                                  onclick={(e) => { e.stopPropagation(); statusPopover = null; ubahStatus(dok.id, s); }}
+                                  style="width:100%; text-align:left; padding:8px 12px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:transparent; color:{sc2.color}; font-family:inherit; display:flex; align-items:center; gap:6px;"
+                                  onmouseenter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
+                                  onmouseleave={(e) => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                                >
+                                  <span style="font-size:9px; background:{sc2.bg}; color:{sc2.color}; padding:1px 5px; border-radius:3px; letter-spacing:0.05em; text-transform:uppercase;">{sc2.label}</span>
+                                </button>
+                              {/each}
+                            </div>
+                          {/if}
+                        </div>
                         {#if tahap.jenis === 'RKA-SKPD' && (dok.status === 'draft' || dok.status === 'konsep')}
                           <button
                             onclick={(e) => { e.stopPropagation(); quickJadikanDpa(dok.id); }}
@@ -405,3 +420,4 @@
   </div>
   {/if}
 {/if}
+</div>
