@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import Toast from "$lib/components/Toast.svelte";
   import { page } from "$app/stores";
   import { onMount } from "svelte";
 
@@ -67,3 +68,4 @@
     {@render children()}
   </main>
 </div>
+<Toast />

@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { jenisConfig, statusConfig, TRANSISI_STATUS, TAHAPAN, type StatusDokumen } from "$lib/dokumen-config";
+  import { toast } from "$lib/stores/toast";
 
   interface Dokumen {
     id: number;
@@ -24,7 +25,7 @@
   let tahunAktif = $state<TahunAnggaran | null>(null);
   let dokumenList = $state<Dokumen[]>([]);
   let loading = $state(true);
-  let error = $state("");
+
 
   onMount(async () => {
     try {
@@ -33,7 +34,7 @@
       if (tahunAktif) {
         dokumenList = await invoke<Dokumen[]>("get_dokumen", { tahunAnggaranId: tahunAktif.id });
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { loading = false; }
   });
 
@@ -102,8 +103,9 @@
     actionLoading = rkaId;
     try {
       const id = await invoke<number>('jadikan_dpa', { rkaId });
+      toast.success('DPA-SKPD berhasil dibuat.');
       goto('/dokumen/' + id);
-    } catch(e) { error = String(e); actionLoading = null; }
+    } catch(e) { toast.error(String(e)); actionLoading = null; }
   }
 
   async function quickJadikanDppa(rkapId: number) {
@@ -111,8 +113,9 @@
     actionLoading = rkapId;
     try {
       const id = await invoke<number>('jadikan_dppa', { rkapId });
+      toast.success('DPPA-SKPD berhasil dibuat.');
       goto('/dokumen/' + id);
-    } catch(e) { error = String(e); actionLoading = null; }
+    } catch(e) { toast.error(String(e)); actionLoading = null; }
   }
 
 
@@ -123,7 +126,8 @@
       actionLoading = dokId;
       await invoke('ubah_status_dokumen', { id: dokId, statusBaru });
       dokumenList = await invoke('get_dokumen', { tahunAnggaranId: tahunAktif!.id });
-    } catch(e) { error = String(e); }
+      toast.success('Status diubah ke ' + statusConfig(statusBaru).label + '.');
+    } catch(e) { toast.error(String(e)); }
     finally { actionLoading = null; }
   }
 
@@ -132,8 +136,9 @@
     actionLoading = dokumenId;
     try {
       const id = await invoke<number>('buat_pergeseran', { dokumenId });
+      toast.success('Pergeseran anggaran berhasil dibuat.');
       goto('/dokumen/' + id);
-    } catch(e) { error = String(e); actionLoading = null; }
+    } catch(e) { toast.error(String(e)); actionLoading = null; }
   }
 
 
@@ -149,8 +154,6 @@
   </div>
   <a href="/dokumen/buat" class="btn btn-primary" style="font-size:12px;">+ Buat Dokumen</a>
 </div>
-
-{#if error}<div class="alert-error">{error}</div>{/if}
 
 {#if loading}
   <p style="font-size:13px; color:var(--text-3);">Memuat...</p>
