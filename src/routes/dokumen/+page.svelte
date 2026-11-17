@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
 
   interface Dokumen {
     id: number;
@@ -121,11 +122,41 @@
           tagline: "Dokumen Pelaksanaan Perubahan Anggaran",
           ada_se: true,
           tunggal: true,
+          next: "Perubahan DPA-SKPD",
+        },
+        {
+          jenis: "Perubahan DPA-SKPD",
+          icon: "⟳",
+          warna: "#ef4444",
+          warnaGlow: "#ef444430",
+          tagline: "Pergeseran Anggaran · DPA",
+          ada_se: true,
+          tunggal: false,
+          next: null,
+        },
+        {
+          jenis: "Perubahan DPPA-SKPD",
+          icon: "⟳",
+          warna: "#ef4444",
+          warnaGlow: "#ef444430",
+          tagline: "Pergeseran Anggaran · DPPA",
+          ada_se: true,
+          tunggal: false,
           next: null,
         },
       ]
     },
   ];
+
+  // Filter dari sidebar
+  const filterMap: Record<string, string> = {
+    persiapan: "Persiapan",
+    pagu: "Persiapan",
+    rka: "Penganggaran",
+    dpa: "Penganggaran",
+    perubahan: "Perubahan",
+  };
+  let activeGroup = $derived(filterMap[$page.url.searchParams.get("filter") || ""] || null);
 </script>
 
 <div class="page-header" style="display:flex; align-items:start; justify-content:space-between;">
@@ -153,8 +184,8 @@
       <div>
         <!-- Group label -->
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-          <span class="label">{group.group}</span>
-          <div style="flex:1; height:1px; background:var(--border);"></div>
+          <span class="label" style="color:{activeGroup === group.group ? 'var(--accent)' : ''};">{group.group}</span>
+          <div style="flex:1; height:1px; background:{activeGroup === group.group ? 'var(--accent)' : 'var(--border)'};opacity:{activeGroup === group.group ? 0.5 : 1};"></div>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:8px;">
