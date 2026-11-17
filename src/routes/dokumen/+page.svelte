@@ -4,6 +4,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { tick } from "svelte";
+  import { jenisConfig, statusConfig, TRANSISI_STATUS, TAHAPAN, type StatusDokumen } from "$lib/dokumen-config";
 
   interface Dokumen {
     id: number;
@@ -42,134 +43,11 @@
     return dokumenList.filter(d => d.jenis === jenis).sort((a, b) => b.versi - a.versi);
   }
 
-  const statusStyle: Record<string, {bg: string, color: string, label: string}> = {
-    draft:      { bg: "#1e293b", color: "#94a3b8", label: "Draft" },
-    konsep:     { bg: "#0c2a4a", color: "#7dd3fc", label: "Konsep" },
-    ditetapkan: { bg: "#052e16", color: "#4ade80", label: "Ditetapkan" },
-    dikunci:    { bg: "#2d1f00", color: "#fbbf24", label: "Dikunci" },
-    diarsipkan: { bg: "#1a1a2e", color: "#6b7280", label: "Diarsipkan" },
-  };
 
-  // Tahapan — 2 blok: Murni (KK + PI) dan Penganggaran
-  const tahapan = [
-    {
-      group: "Persiapan",
-      items: [
-        {
-          jenis: "Kertas Kerja",
-          icon: "✦",
-          warna: "#6366f1",
-          warnaGlow: "#6366f130",
-          tagline: "Survei kebutuhan & estimasi harga",
-          ada_se: false,
-          tunggal: true,
-          next: null,
-        },
-        {
-          jenis: "Pagu Indikatif",
-          icon: "◈",
-          warna: "#0ea5e9",
-          warnaGlow: "#0ea5e930",
-          tagline: "Alokasi Bappeda · SHS Resmi",
-          ada_se: false,
-          tunggal: true,
-          next: "RKA-SKPD",
-        },
-      ]
-    },
-    {
-      group: "Penganggaran",
-      items: [
-        {
-          jenis: "RKA-SKPD",
-          icon: "▸",
-          warna: "#10b981",
-          warnaGlow: "#10b98130",
-          tagline: "Rencana Kerja & Anggaran",
-          ada_se: true,
-          tunggal: false,
-          next: "DPA-SKPD",
-        },
-        {
-          jenis: "DPA-SKPD",
-          icon: "▸",
-          warna: "#f59e0b",
-          warnaGlow: "#f59e0b30",
-          tagline: "Dokumen Pelaksanaan Anggaran",
-          ada_se: true,
-          tunggal: true,
-          next: null,
-        },
-      ]
-    },
-    {
-      group: "Perubahan",
-      items: [
-        {
-          jenis: "RKA-SKPD Perubahan",
-          icon: "▸",
-          warna: "#10b981",
-          warnaGlow: "#10b98130",
-          tagline: "Rencana Kerja & Anggaran Perubahan",
-          ada_se: true,
-          tunggal: false,
-          next: "DPPA-SKPD",
-        },
-        {
-          jenis: "DPPA-SKPD",
-          icon: "▸",
-          warna: "#f59e0b",
-          warnaGlow: "#f59e0b30",
-          tagline: "Dokumen Pelaksanaan Perubahan Anggaran",
-          ada_se: true,
-          tunggal: true,
-          next: "Perubahan DPA-SKPD",
-        },
-        {
-          jenis: "Perubahan DPA-SKPD",
-          icon: "⟳",
-          warna: "#ef4444",
-          warnaGlow: "#ef444430",
-          tagline: "Pergeseran Anggaran · DPA",
-          ada_se: true,
-          tunggal: false,
-          next: null,
-        },
-        {
-          jenis: "Perubahan DPPA-SKPD",
-          icon: "⟳",
-          warna: "#ef4444",
-          warnaGlow: "#ef444430",
-          tagline: "Pergeseran Anggaran · DPPA",
-          ada_se: true,
-          tunggal: false,
-          next: null,
-        },
-      ]
-    },
-  ];
 
   // ── Git-graph: bangun rantai dokumen dari asal_id ──────────────────────────
-  const jenisWarna: Record<string, string> = {
-    'Kertas Kerja':        '#6366f1',
-    'Pagu Indikatif':      '#0ea5e9',
-    'RKA-SKPD':            '#10b981',
-    'DPA-SKPD':            '#f59e0b',
-    'RKA-SKPD Perubahan':  '#10b981',
-    'DPPA-SKPD':           '#f59e0b',
-    'Perubahan DPA-SKPD':  '#ef4444',
-    'Perubahan DPPA-SKPD': '#ef4444',
-  };
-  const jenisIcon: Record<string, string> = {
-    'Kertas Kerja':        '✦',
-    'Pagu Indikatif':      '◈',
-    'RKA-SKPD':            '▸',
-    'DPA-SKPD':            '▸',
-    'RKA-SKPD Perubahan':  '▸',
-    'DPPA-SKPD':           '▸',
-    'Perubahan DPA-SKPD':  '⟳',
-    'Perubahan DPPA-SKPD': '⟳',
-  };
+
+
 
   // Kembalikan array of chains; tiap chain = array Dokumen terurut dari root
   function buildChains(list: Dokumen[]): Dokumen[][] {
@@ -198,6 +76,19 @@
   }
 
   let chains = $derived(buildChains(dokumenList));
+
+  // Tahapan dari shared config — diperkaya warnaGlow untuk template
+  const tahapan = TAHAPAN.map(g => ({
+    ...g,
+    items: g.items.map(item => ({
+      ...item,
+      ...jenisConfig(item.jenis),
+      ada_se: jenisConfig(item.jenis).adaSE,
+    }))
+  }));
+
+  // Tab aktif
+  let activeTab = $state<'dokumen' | 'alur'>('dokumen');
 
   // Filter dari sidebar
   const filterMap: Record<string, string> = {
@@ -229,17 +120,8 @@
     } catch(e) { error = String(e); actionLoading = null; }
   }
 
-  const transisiValid: Record<string, string[]> = {
-    draft:      ['konsep'],
-    konsep:     ['draft', 'ditetapkan'],
-    ditetapkan: ['konsep', 'dikunci'],
-    dikunci:    ['diarsipkan'],
-    diarsipkan: [],
-  };
-  const statusLabel: Record<string, string> = {
-    draft: 'Draft', konsep: 'Konsep', ditetapkan: 'Ditetapkan',
-    dikunci: 'Dikunci', diarsipkan: 'Diarsipkan',
-  };
+
+
 
   async function ubahStatus(dokId: number, statusBaru: string) {
     try {
@@ -289,6 +171,19 @@
     <a href="/tahun-anggaran" class="btn btn-primary">Atur Tahun Anggaran</a>
   </div>
 {:else}
+  <!-- Tab switcher -->
+  <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:24px; width:fit-content;">
+    <button
+      style="padding:8px 20px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:{activeTab === 'dokumen' ? 'var(--accent)' : 'transparent'}; color:{activeTab === 'dokumen' ? 'white' : 'var(--text-3)'}; font-family:inherit;"
+      onclick={() => activeTab = 'dokumen'}
+    >📋 Dokumen</button>
+    <button
+      style="padding:8px 20px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:{activeTab === 'alur' ? 'var(--accent)' : 'transparent'}; color:{activeTab === 'alur' ? 'white' : 'var(--text-3)'}; font-family:inherit; border-left:1px solid var(--border);"
+      onclick={() => activeTab = 'alur'}
+    >◈ Alur Dokumen {chains.filter(c => c.length > 1).length > 0 ? '(' + chains.filter(c => c.length > 1).length + ')' : ''}</button>
+  </div>
+
+  {#if activeTab === 'dokumen'}
   <div style="display:flex; flex-direction:column; gap:28px;">
     {#each tahapan as group}
       <div>
@@ -387,7 +282,7 @@
 
                       <!-- Kanan: status + tombol -->
                       <div style="display:flex; align-items:center; gap:8px;">
-                        {#if transisiValid[dok.status]?.length > 0}
+                        {#if TRANSISI_STATUS[dok.status as StatusDokumen]?.length > 0}
                           <select
                             value={dok.status}
                             onchange={(e) => { e.stopPropagation(); ubahStatus(dok.id, (e.target as HTMLSelectElement).value); }}
@@ -395,17 +290,17 @@
                             disabled={actionLoading === dok.id}
                             style="font-size:11px; padding:2px 6px; border-radius:4px; cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); font-family:inherit;"
                           >
-                            <option value={dok.status}>{statusLabel[dok.status] || dok.status}</option>
-                            {#each transisiValid[dok.status] || [] as s}
-                              <option value={s}>→ {statusLabel[s] || s}</option>
+                            <option value={dok.status}>{statusConfig(dok.status).label}</option>
+                            {#each TRANSISI_STATUS[dok.status as StatusDokumen] || [] as s}
+                              <option value={s}>→ {statusConfig(s).label}</option>
                             {/each}
                           </select>
                         {:else}
                           <span style="
                             font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;
-                            background:{(statusStyle[dok.status] || statusStyle.draft).bg}; color:{(statusStyle[dok.status] || statusStyle.draft).color};
+                            background:{(statusConfig(dok.status)).bg}; color:{(statusConfig(dok.status)).color};
                             letter-spacing:0.05em; text-transform:uppercase;
-                          ">{(statusStyle[dok.status] || statusStyle.draft).label}</span>
+                          ">{(statusConfig(dok.status)).label}</span>
                         {/if}
                         {#if tahap.jenis === 'RKA-SKPD' && (dok.status === 'draft' || dok.status === 'konsep')}
                           <button
@@ -447,13 +342,22 @@
         </div>
       </div>
     {/each}
-    <!-- ── Git-graph rantai dokumen ──────────────────────────────────────── -->
-    {#if chains.length > 0}
-      <div style="margin-top:12px;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-          <span class="label">Alur Dokumen</span>
-          <div style="flex:1; height:1px; background:var(--border);"></div>
-        </div>
+  </div>
+  {/if}
+
+  {#if activeTab === 'alur'}
+  <div>
+    {#if chains.length === 0}
+      <div class="card" style="padding:48px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:12px;">◈</div>
+        <p style="font-size:13px; color:var(--text-3);">Belum ada rantai dokumen. Buat dokumen dan jadikan DPA/DPPA untuk melihat alurnya.</p>
+      </div>
+    {:else}
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <span class="label">Alur Dokumen</span>
+        <div style="flex:1; height:1px; background:var(--border);"></div>
+        <span style="font-size:11px; color:var(--text-3);">{chains.filter(c => c.length > 1).length} rantai · {chains.filter(c => c.length === 1).length} tunggal</span>
+      </div>
 
         <div style="display:flex; flex-direction:column; gap:12px;">
           {#each chains as chain}
@@ -464,9 +368,9 @@
               overflow-x:auto; opacity:{chain.length === 1 ? 0.5 : 1};
             ">
               {#each chain as dok, i}
-                {@const warna = jenisWarna[dok.jenis] || '#94a3b8'}
-                {@const icon = jenisIcon[dok.jenis] || '▸'}
-                {@const st = statusStyle[dok.status] || statusStyle.draft}
+                {@const warna = jenisConfig(dok.jenis).warna}
+                {@const icon = jenisConfig(dok.jenis).icon}
+                {@const st = statusConfig(dok.status)}
 
                 <!-- Node -->
                 <button
@@ -511,7 +415,7 @@
             </div>
           {/each}
         </div>
-      </div>
     {/if}
   </div>
+  {/if}
 {/if}

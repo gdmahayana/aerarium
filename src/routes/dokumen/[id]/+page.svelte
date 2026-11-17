@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { jenisConfig, statusConfig } from "$lib/dokumen-config";
   import { save } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
@@ -94,29 +95,9 @@
   });
 
   // Konfigurasi per jenis dokumen
-  const jenisConfig: Record<string, {
-    warna: string; warnaGlow: string; icon: string;
-    tagline: string; adaSE: boolean;
-  }> = {
-    "Kertas Kerja":        { warna: "#6366f1", warnaGlow: "#6366f115", icon: "✦", tagline: "Survei kebutuhan & estimasi harga", adaSE: false },
-    "Pagu Indikatif":      { warna: "#0ea5e9", warnaGlow: "#0ea5e915", icon: "◈", tagline: "Alokasi Bappeda · SHS Resmi", adaSE: false },
-    "RKA-SKPD":            { warna: "#10b981", warnaGlow: "#10b98115", icon: "▸", tagline: "Rencana Kerja & Anggaran", adaSE: true },
-    "DPA-SKPD":            { warna: "#f59e0b", warnaGlow: "#f59e0b15", icon: "▸", tagline: "Dokumen Pelaksanaan Anggaran", adaSE: true },
-    "RKA-SKPD Perubahan":  { warna: "#10b981", warnaGlow: "#10b98115", icon: "▸", tagline: "RKA Perubahan", adaSE: true },
-    "DPPA-SKPD":           { warna: "#f59e0b", warnaGlow: "#f59e0b15", icon: "▸", tagline: "Dokumen Pelaksanaan Perubahan Anggaran", adaSE: true },
-    "Perubahan DPA-SKPD":   { warna: "#ef4444", warnaGlow: "#ef444415", icon: "⟳", tagline: "Pergeseran Anggaran · DPA", adaSE: true },
-    "Perubahan DPPA-SKPD":  { warna: "#ef4444", warnaGlow: "#ef444415", icon: "⟳", tagline: "Pergeseran Anggaran · DPPA", adaSE: true },
-  };
+  const cfg = $derived(dokumen ? jenisConfig(dokumen.jenis) : jenisConfig("RKA-SKPD"));
 
-  const cfg = $derived(dokumen ? (jenisConfig[dokumen.jenis] || jenisConfig["RKA-SKPD"]) : jenisConfig["RKA-SKPD"]);
 
-  const statusStyle: Record<string, {bg: string, color: string}> = {
-    draft:      { bg: "#1e293b", color: "#94a3b8" },
-    konsep:     { bg: "#0c2a4a", color: "#7dd3fc" },
-    ditetapkan: { bg: "#052e16", color: "#4ade80" },
-    dikunci:    { bg: "#2d1f00", color: "#fbbf24" },
-    diarsipkan: { bg: "#1a1a2e", color: "#6b7280" },
-  };
 
   onMount(async () => {
     try {
