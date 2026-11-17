@@ -20,8 +20,13 @@
   let asal_keterangan = $state("");
   let dokumenAsalList = $state<DokumenAsal[]>([]);
 
-  const butuhAsal = $derived(jenis === "DPA-SKPD" || jenis === "DPPA-SKPD");
-  const jenisDibutuhkan = $derived(jenis === "DPA-SKPD" ? "RKA-SKPD" : "RKA-SKPD Perubahan");
+  const butuhAsal = $derived(["DPA-SKPD", "DPPA-SKPD", "Perubahan DPA-SKPD", "Perubahan DPPA-SKPD"].includes(jenis));
+  const jenisDibutuhkan = $derived(
+    jenis === "DPA-SKPD" ? "RKA-SKPD" :
+    jenis === "DPPA-SKPD" ? "RKA-SKPD Perubahan" :
+    jenis === "Perubahan DPA-SKPD" ? "DPA-SKPD" :
+    jenis === "Perubahan DPPA-SKPD" ? "DPPA-SKPD" : ""
+  );
   const adaSE = $derived(!["Kertas Kerja", "Pagu Indikatif"].includes(jenis));
 
   const jenisList = [
@@ -60,6 +65,18 @@
       icon: "▸",
       warna: "#f59e0b",
       desc: "Dokumen Pelaksanaan Perubahan Anggaran",
+    },
+    {
+      value: "Perubahan DPA-SKPD",
+      icon: "⟳",
+      warna: "#ef4444",
+      desc: "Pergeseran anggaran dari DPA yang sudah ditetapkan",
+    },
+    {
+      value: "Perubahan DPPA-SKPD",
+      icon: "⟳",
+      warna: "#ef4444",
+      desc: "Pergeseran anggaran dari DPPA yang sudah ditetapkan",
     },
   ];
 
