@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
@@ -10,7 +11,6 @@
   let tahunAktif = $state<TahunAnggaran | null>(null);
   let loading = $state(true);
   let submitting = $state(false);
-  let error = $state("");
 
   const jenisValid = ["Kertas Kerja","Pagu Indikatif","RKA-SKPD","DPA-SKPD","RKA-SKPD Perubahan","DPPA-SKPD"];
   const jenisFromUrl = $page.url.searchParams.get("jenis") || "";
@@ -75,7 +75,7 @@
         const semua = await invoke<DokumenAsal[]>("get_dokumen", { tahunAnggaranId: tahunAktif.id });
         dokumenAsalList = semua.filter(d => d.status !== "diarsipkan");
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { loading = false; }
   });
 
@@ -95,7 +95,7 @@
         }
       });
       goto("/dokumen/" + id);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { submitting = false; }
   }
 
@@ -113,7 +113,6 @@
   <a href="/dokumen" class="btn btn-ghost" style="font-size:12px;">← Kembali</a>
 </div>
 
-{#if error}<div class="alert-error">{error}<button onclick={() => error=""} style="margin-left:8px; background:none; border:none; color:inherit; cursor:pointer; text-decoration:underline;">Tutup</button></div>{/if}
 
 {#if loading}
   <p style="font-size:13px; color:var(--text-3);">Memuat...</p>

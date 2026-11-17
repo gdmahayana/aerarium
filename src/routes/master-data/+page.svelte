@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
 
   interface MasterProgram {
@@ -66,7 +67,6 @@
   let expandedProgram = $state<number | null>(null);
   let expandedKegiatan = $state<number | null>(null);
   let loading = $state(true);
-  let error = $state("");
 
   // Form state
   let formProgram = $state({ kode: "", uraian: "" });
@@ -139,7 +139,7 @@
         tahunAktifId = tahunAktif.id;
         sumberDanaList = await invoke<SumberDana[]>("get_sumber_dana", { tahunAnggaranId: tahunAktif.id });
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     await loadPrograms();
     await loadRekening();
   });
@@ -149,7 +149,7 @@
     try {
       programs = await invoke<MasterProgram[]>("get_master_program");
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       loading = false;
     }
@@ -160,7 +160,7 @@
       const list = await invoke<MasterKegiatan[]>("get_master_kegiatan", { masterProgramId: programId });
       kegiatanMap = { ...kegiatanMap, [programId]: list };
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 
@@ -169,7 +169,7 @@
       const list = await invoke<MasterSubKegiatan[]>("get_master_sub_kegiatan", { masterKegiatanId: kegiatanId });
       subKegiatanMap = { ...subKegiatanMap, [kegiatanId]: list };
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 
@@ -201,7 +201,7 @@
       await loadPrograms();
     await loadRekening();
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 
@@ -213,7 +213,7 @@
       showFormKegiatan = null;
       await loadKegiatan(programId);
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 
@@ -225,7 +225,7 @@
       showFormSubKegiatan = null;
       await loadSubKegiatan(kegiatanId);
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 
@@ -234,14 +234,14 @@
       await invoke("toggle_master_program", { id });
       await loadPrograms();
     await loadRekening();
-    } catch (e) { error = String(e); }
+    } catch (e) { toast.error(String(e)); }
   }
 
   async function toggleAktifKegiatan(id: number, programId: number) {
     try {
       await invoke("toggle_master_kegiatan", { id });
       await loadKegiatan(programId);
-    } catch (e) { error = String(e); }
+    } catch (e) { toast.error(String(e)); }
   }
 
   async function tambahSumberDana() {
@@ -251,14 +251,14 @@
       sumberDanaList = await invoke<SumberDana[]>("get_sumber_dana", { tahunAnggaranId: tahunAktifId });
       formSD = { kode: "", nama: "" };
       showFormSD = false;
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function toggleAktifSubKegiatan(id: number, kegiatanId: number) {
     try {
       await invoke("toggle_master_sub_kegiatan", { id });
       await loadSubKegiatan(kegiatanId);
-    } catch (e) { error = String(e); }
+    } catch (e) { toast.error(String(e)); }
   }
 </script>
 
@@ -267,9 +267,6 @@
   <p>Kelola program, kegiatan, dan sub kegiatan dari Renstra/Renja</p>
 </div>
 
-{#if error}
-  <div class="alert-error">{error}</div>
-{/if}
 
 <!-- Tab switcher -->
 <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:24px; width:fit-content;">

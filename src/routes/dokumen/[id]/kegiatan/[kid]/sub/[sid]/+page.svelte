@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
 
@@ -41,7 +42,6 @@
 
   let rekeningList = $state<RincianRekening[]>([]);
   let loading = $state(true);
-  let error = $state("");
 
   const dokumenId = $derived(Number($page.params.id));
   const kegiatanId = $derived(Number($page.params.kid));
@@ -107,7 +107,7 @@
       }
       rekeningList = result;
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 
@@ -131,7 +131,7 @@
       showFormRekening = false;
       await muat();
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       submitting = false;
     }
@@ -148,7 +148,7 @@
       showFormPengelompokan = false;
       await muat();
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       submitting = false;
     }
@@ -165,7 +165,7 @@
       showFormKeterangan = false;
       await muat();
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       submitting = false;
     }
@@ -190,7 +190,7 @@
       showFormItem = false;
       await muat();
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       submitting = false;
     }
@@ -202,7 +202,7 @@
       await invoke("hapus_rincian_item", { id });
       await muat();
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 </script>
@@ -217,12 +217,6 @@
   </button>
 </div>
 
-{#if error}
-  <div class="alert-error">
-    {error}
-    <button onclick={() => error = ""} style="margin-left:8px; text-decoration:underline; background:none; border:none; color:inherit; cursor:pointer;">Tutup</button>
-  </div>
-{/if}
 
 {#if showFormRekening}
   <div class="card" style="padding:20px; margin-bottom:16px; max-width:560px;">

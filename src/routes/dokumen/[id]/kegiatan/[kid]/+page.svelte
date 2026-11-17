@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -18,7 +19,6 @@
 
   let subKegiatanList = $state<SubKegiatan[]>([]);
   let loading = $state(true);
-  let error = $state("");
 
   let showForm = $state(false);
   let kode = $state("");
@@ -37,7 +37,7 @@
     try {
       subKegiatanList = await invoke<SubKegiatan[]>("get_sub_kegiatan", { kegiatanId });
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       loading = false;
     }
@@ -70,7 +70,7 @@
       kode = ""; uraian = ""; pagu = ""; lokasi = ""; waktu = ""; keluaran = ""; target = "";
       showForm = false;
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       submitting = false;
     }
@@ -82,7 +82,7 @@
       await invoke("hapus_sub_kegiatan", { id });
       subKegiatanList = subKegiatanList.filter(s => s.id !== id);
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     }
   }
 </script>
@@ -94,12 +94,6 @@
   </div>
 </div>
 
-{#if error}
-  <div class="alert-error">
-    {error}
-    <button onclick={() => error = ""} style="margin-left:8px; text-decoration:underline; background:none; border:none; color:inherit; cursor:pointer;">Tutup</button>
-  </div>
-{/if}
 
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
   <span class="label">Sub Kegiatan</span>

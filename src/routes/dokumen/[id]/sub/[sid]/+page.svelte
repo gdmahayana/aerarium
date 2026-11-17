@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
 
@@ -70,7 +71,6 @@
 
   let rekeningList = $state<RincianRekening[]>([]);
   let loading = $state(true);
-  let error = $state("");
   let submitting = $state(false);
 
   // Form rekening
@@ -211,7 +211,7 @@
         result.push({ ...rek, pengelompokanList });
       }
       rekeningList = result;
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   onMount(async () => {
@@ -265,7 +265,7 @@
       await invoke("tambah_rincian_rekening", { input: { dokumen_sub_kegiatan_id: subId, rekening_id: rekId } });
       fRekKode = ""; fRekUraian = ""; showFormRekening = false;
       await muat();
-    } catch(e) { error = String(e); } finally { submitting = false; }
+    } catch(e) { toast.error(String(e)); } finally { submitting = false; }
   }
 
   async function cariRekening(q: string) {
@@ -289,7 +289,7 @@
       await invoke("tambah_rincian_pengelompokan", { input: { rincian_rekening_id: activeRekId, label: fPgLabel } });
       fPgLabel = ""; showFormPg = false;
       await muat();
-    } catch(e) { error = String(e); } finally { submitting = false; }
+    } catch(e) { toast.error(String(e)); } finally { submitting = false; }
   }
 
   async function tambahKeterangan() {
@@ -299,7 +299,7 @@
       await invoke("tambah_rincian_keterangan", { input: { rincian_pengelompokan_id: activePgId, label: fKetLabel } });
       fKetLabel = ""; showFormKet = false;
       await muat();
-    } catch(e) { error = String(e); } finally { submitting = false; }
+    } catch(e) { toast.error(String(e)); } finally { submitting = false; }
   }
 
   function bukaModalItem(ketId: number) {
@@ -339,7 +339,7 @@
       });
       showModalItem = false;
       await muat();
-    } catch(e) { error = String(e); } finally { submitting = false; }
+    } catch(e) { toast.error(String(e)); } finally { submitting = false; }
   }
 
   function bukaEditItem(item: RincianItem) {
@@ -386,26 +386,26 @@
       });
       showModalEdit = false;
       await muat();
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { submitting = false; }
   }
 
   async function hapusRekening(id: number) {
     if (!confirm('Hapus rekening ini beserta semua isinya?')) return;
     try { await invoke("hapus_rincian_rekening", { id }); await muat(); }
-    catch(e) { error = String(e); }
+    catch(e) { toast.error(String(e)); }
   }
 
   async function hapusPengelompokan(id: number) {
     if (!confirm('Hapus pengelompokan ini beserta semua isinya?')) return;
     try { await invoke("hapus_rincian_pengelompokan", { id }); await muat(); }
-    catch(e) { error = String(e); }
+    catch(e) { toast.error(String(e)); }
   }
 
   async function hapusKeterangan(id: number) {
     if (!confirm('Hapus keterangan ini beserta semua itemnya?')) return;
     try { await invoke("hapus_rincian_keterangan", { id }); await muat(); }
-    catch(e) { error = String(e); }
+    catch(e) { toast.error(String(e)); }
   }
 
   async function hapusItem(id: number, realisasi: number) {
@@ -415,7 +415,7 @@
       if (!confirm("Hapus item ini?")) return;
     }
     try { await invoke("hapus_rincian_item", { id }); await muat(); }
-    catch(e) { error = String(e); }
+    catch(e) { toast.error(String(e)); }
   }
 
   async function simpanRealisasi(id: number) {
@@ -423,7 +423,7 @@
       await invoke("update_realisasi_item", { id, realisasi: parseFloat(fRealisasi) || 0 });
       editRealisasiId = null;
       await muat();
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 </script>
 
@@ -727,9 +727,6 @@
   </div>
 </div>
 
-{#if error}
-  <div class="alert-error">{error}<button onclick={() => error = ""} style="margin-left:8px; background:none; border:none; color:inherit; cursor:pointer; text-decoration:underline;">Tutup</button></div>
-{/if}
 
 <!-- Form Rekening -->
 {#if showFormRekening}

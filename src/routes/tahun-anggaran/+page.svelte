@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
 
   interface TahunAnggaran {
@@ -11,7 +12,6 @@
 
   let list = $state<TahunAnggaran[]>([]);
   let loading = $state(true);
-  let error = $state("");
   let tahunBaru = $state("");
   let submitting = $state(false);
 
@@ -22,7 +22,7 @@
       loading = true;
       list = await invoke<TahunAnggaran[]>("get_tahun_anggaran");
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       loading = false;
     }
@@ -36,7 +36,7 @@
       tahunBaru = "";
       await muat();
     } catch (e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       submitting = false;
     }
@@ -46,7 +46,7 @@
     try {
       await invoke("set_tahun_anggaran_aktif", { id });
       await muat();
-    } catch (e) { error = String(e); }
+    } catch (e) { toast.error(String(e)); }
   }
 
   async function hapus(id: number) {
@@ -54,7 +54,7 @@
     try {
       await invoke("hapus_tahun_anggaran", { id });
       await muat();
-    } catch (e) { error = String(e); }
+    } catch (e) { toast.error(String(e)); }
   }
 </script>
 
@@ -63,12 +63,6 @@
   <p>Kelola tahun anggaran yang digunakan</p>
 </div>
 
-{#if error}
-  <div class="alert-error">
-    {error}
-    <button onclick={() => error = ""} style="margin-left:8px; text-decoration:underline; background:none; border:none; color:inherit; cursor:pointer; font-family:inherit;">Tutup</button>
-  </div>
-{/if}
 
 <div class="card" style="padding:20px; margin-bottom:20px; max-width:420px;">
   <div style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:14px;">Tambah Tahun Anggaran</div>

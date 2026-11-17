@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
 
   interface Shs {
@@ -29,7 +30,6 @@
   let cari = $state("");
   let filterJenis = $state("");
   let loading = $state(true);
-  let error = $state("");
   let importing = $state(false);
   let showModalImport = $state(false);
   let importJenis = $state("SSH");
@@ -56,7 +56,7 @@
       if (tahunAktif) {
         shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { loading = false; }
   });
 
@@ -110,7 +110,7 @@
       shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
       form = { jenis: "SSH", kode: "", uraian: "", spesifikasi: "", satuan: "", harga: "" };
       showForm = false;
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { submitting = false; }
   }
 
@@ -119,7 +119,7 @@
     try {
       await invoke("hapus_shs", { id });
       shsList = shsList.filter(s => s.id !== id);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function exportSHSRencana() {
@@ -136,7 +136,7 @@
         outputPath: filePath,
       });
       alert("Berhasil export " + count + " item SHS Rencana ke Excel");
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function importExcel() {
@@ -156,7 +156,7 @@
       shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
       showModalImport = false;
       alert("Berhasil import " + count + " item " + importJenis + " Resmi");
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { importing = false; }
   }
 </script>
@@ -201,12 +201,6 @@
   <p>Standar Satuan Harga — referensi harga untuk penyusunan rincian belanja</p>
 </div>
 
-{#if error}
-  <div class="alert-error">
-    {error}
-    <button onclick={() => error = ""} style="margin-left:8px; text-decoration:underline; background:none; border:none; color:inherit; cursor:pointer;">Tutup</button>
-  </div>
-{/if}
 
 {#if loading}
   <p style="font-size:13px; color:var(--text-3);">Memuat...</p>

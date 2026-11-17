@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
 
@@ -36,7 +37,6 @@
   let masterSubList = $state<MasterSubKegiatan[]>([]);
   let rincianMap = $state<Record<number, RincianRekening[]>>({});
   let loading = $state(true);
-  let error = $state("");
   let expandedDsk = $state<Set<number>>(new Set());
 
   function formatRp(n: number) {
@@ -81,7 +81,7 @@
         result.push({ ...rek, pengelompokanList });
       }
       rincianMap = { ...rincianMap, [dskId]: result };
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function toggleDsk(dskId: number) {
@@ -114,7 +114,7 @@
         invoke("get_dokumen_sub_kegiatan", { dokumenId }),
         invoke("get_master_sub_kegiatan_aktif"),
       ]);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { loading = false; }
   });
 </script>
@@ -131,9 +131,6 @@
   <button onclick={expandAll} class="btn btn-primary" style="font-size:12px;">Buka Semua</button>
 </div>
 
-{#if error}
-  <div class="alert-error">{error}</div>
-{/if}
 
 {#if loading}
   <p style="font-size:13px; color:var(--text-3);">Memuat...</p>

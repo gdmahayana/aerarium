@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { jenisConfig, statusConfig } from "$lib/dokumen-config";
+  import { toast } from "$lib/stores/toast";
   import { save } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
@@ -60,7 +61,7 @@
   let masterSubList = $state<MasterSubKegiatan[]>([]);
   let sumberDanaList= $state<SumberDana[]>([]);
   let loading       = $state(true);
-  let error         = $state("");
+
   let showForm      = $state(false);
   let submitting    = $state(false);
   let editingId     = $state<number | null>(null);
@@ -121,7 +122,7 @@
         await muatPagu();
       }
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { loading = false; }
   });
 
@@ -140,7 +141,7 @@
         invoke<PaguIndikatif[]>("get_pagu_indikatif", { dokumenId }),
         invoke<PaguIndikatifRekap[]>("get_pagu_indikatif_rekap", { dokumenId }),
       ]);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function simpanPagu() {
@@ -156,7 +157,7 @@
       fPagu = { kode_rekening: "", uraian: "", pagu: "" };
       showFormPagu = false;
       await muatPagu();
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { submittingPagu = false; }
   }
 
@@ -175,7 +176,7 @@
       }});
       editingPaguId = null;
       await muatPagu();
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { submittingPagu = false; }
   }
 
@@ -184,7 +185,7 @@
     try {
       await invoke("hapus_pagu_indikatif", { id });
       await muatPagu();
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function muatStatus() {
@@ -259,7 +260,7 @@
       if (dokumen && dokumen.jenis === "Pagu Indikatif") {
         await muatPagu();
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { submitting = false; }
   }
 
@@ -292,7 +293,7 @@
       if (dokumen && dokumen.jenis === "Pagu Indikatif") {
         await muatPagu();
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
     finally { submitting = false; }
   }
 
@@ -302,7 +303,7 @@
       await invoke("hapus_dokumen_sub_kegiatan", { id });
       dskList = dskList.filter(d => d.id !== id);
       if (editingId === id) editingId = null;
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function jadikanRka() {
@@ -313,8 +314,9 @@
     if (!confirm("Jadikan dokumen ini sebagai RKA-SKPD? Semua rincian akan disalin.")) return;
     try {
       const rkaId = await invoke<number>("jadikan_rka", { kertasKerjaId: dokumenId });
+      toast.success('RKA-SKPD berhasil dibuat.');
       goto("/dokumen/" + rkaId);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
 
@@ -327,30 +329,33 @@
       if (dokumen && dokumen.jenis === "Pagu Indikatif") {
         await muatPagu();
       }
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
   async function jadikanDpa() {
     if (!confirm('Jadikan RKA-SKPD ini sebagai DPA-SKPD? Semua rincian akan disalin.')) return;
     try {
       const id = await invoke<number>('jadikan_dpa', { rkaId: dokumenId });
+      toast.success('DPA-SKPD berhasil dibuat.');
       goto('/dokumen/' + id);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function jadikanDppa() {
     if (!confirm('Jadikan RKA-SKPD Perubahan ini sebagai DPPA-SKPD? Semua rincian akan disalin.')) return;
     try {
       const id = await invoke<number>('jadikan_dppa', { rkapId: dokumenId });
+      toast.success('DPPA-SKPD berhasil dibuat.');
       goto('/dokumen/' + id);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function buatPergeseran() {
     if (!confirm('Buat versi revisi baru? Dokumen ini akan dikunci dan rinciannya disalin ke versi baru.')) return;
     try {
       const id = await invoke<number>('buat_pergeseran', { dokumenId });
+      toast.success('Pergeseran anggaran berhasil dibuat.');
       goto('/dokumen/' + id);
-    } catch(e) { error = String(e); }
+    } catch(e) { toast.error(String(e)); }
   }
 
   async function exportExcel() {
@@ -363,11 +368,11 @@
       });
       if (!outputPath) return;
       await invoke("export_kertas_kerja", { dokumenId, outputPath });
-      exportMsg = "✅ Berhasil diekspor.";
-    } catch(e) { exportMsg = "❌ " + String(e); }
+      toast.success("Berhasil diekspor.");
+    } catch(e) { toast.error(String(e)); }
     finally {
       exporting = false;
-      setTimeout(() => exportMsg = "", 4000);
+      
     }
   }
 </script>
@@ -496,17 +501,7 @@
 {/if}
 
 <!-- ═══ NOTIFIKASI ══════════════════════════════════════════════════════════ -->
-{#if exportMsg}
-  <div style="font-size:12px; padding:8px 14px; border-radius:6px; margin-bottom:16px; background:var(--surface-2); color:var(--text-2);">
-    {exportMsg}
-  </div>
-{/if}
-{#if error}
-  <div class="alert-error">
-    {error}
-    <button onclick={() => error=""} style="margin-left:8px; text-decoration:underline; background:none; border:none; color:inherit; cursor:pointer;">Tutup</button>
-  </div>
-{/if}
+
 
 <!-- ═══ KONTEN ══════════════════════════════════════════════════════════════ -->
 {#if loading}

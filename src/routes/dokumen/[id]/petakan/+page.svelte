@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { toast } from "$lib/stores/toast";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -26,7 +27,6 @@
 
   let loading = $state(true);
   let submitting = $state(false);
-  let error = $state("");
   let sukses = $state("");
 
   let shsRencanaList = $state<ShsRencana[]>([]);
@@ -83,7 +83,7 @@
         if (match) pemetaan = { ...pemetaan, [r.id]: match.id };
       }
     } catch(e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       loading = false;
     }
@@ -109,7 +109,7 @@
       sukses = `✅ ${n} item berhasil diperbarui ke SHS Resmi.`;
       setTimeout(() => goto("/dokumen/" + dokumenId), 1500);
     } catch(e) {
-      error = String(e);
+      toast.error(String(e));
     } finally {
       submitting = false;
     }
@@ -123,12 +123,6 @@
   </div>
 </div>
 
-{#if error}
-  <div class="alert-error" style="margin-bottom:16px;">
-    {error}
-    <button onclick={() => error = ""} style="margin-left:8px; background:none; border:none; color:inherit; cursor:pointer; text-decoration:underline;">Tutup</button>
-  </div>
-{/if}
 
 {#if sukses}
   <div style="padding:12px 16px; background:#d1e7dd; color:#0a3622; border-radius:8px; margin-bottom:16px; font-size:13px;">
