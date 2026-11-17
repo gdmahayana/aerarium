@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { tick } from "svelte";
 
   interface Dokumen {
     id: number;
@@ -192,7 +193,7 @@
     // Hanya tampilkan chain yang panjangnya > 1 atau semua kalau mau
     return roots
       .map(r => buildChain(r))
-      .filter(c => c.length > 1)
+      // .filter(c => c.length > 1) // semua ditampilkan, orphan diberi gaya redup
       .sort((a, b) => b.length - a.length);
   }
 
@@ -207,6 +208,15 @@
     perubahan: "Perubahan",
   };
   let activeGroup = $derived(filterMap[$page.url.searchParams.get("filter") || ""] || null);
+
+  $effect(() => {
+    if (activeGroup) {
+      tick().then(() => {
+        const el = document.getElementById('group-' + activeGroup);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  });
 </script>
 
 <div class="page-header" style="display:flex; align-items:start; justify-content:space-between;">
@@ -233,7 +243,7 @@
     {#each tahapan as group}
       <div>
         <!-- Group label -->
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div id="group-{group.group}" style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
           <span class="label" style="color:{activeGroup === group.group ? 'var(--accent)' : ''};">{group.group}</span>
           <div style="flex:1; height:1px; background:{activeGroup === group.group ? 'var(--accent)' : 'var(--border)'};opacity:{activeGroup === group.group ? 0.5 : 1};"></div>
         </div>
@@ -355,7 +365,7 @@
     {#if chains.length > 0}
       <div style="margin-top:12px;">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-          <span class="label">Rantai Dokumen</span>
+          <span class="label">Alur Dokumen</span>
           <div style="flex:1; height:1px; background:var(--border);"></div>
         </div>
 
@@ -364,8 +374,8 @@
             <div style="
               display:flex; align-items:center; gap:0;
               padding:14px 20px; background:var(--surface-2);
-              border:1px solid var(--border); border-radius:10px;
-              overflow-x:auto;
+              border:1px solid {chain.length === 1 ? 'var(--border)' : 'var(--border)'}; border-radius:10px;
+              overflow-x:auto; opacity:{chain.length === 1 ? 0.5 : 1};
             ">
               {#each chain as dok, i}
                 {@const warna = jenisWarna[dok.jenis] || '#94a3b8'}
