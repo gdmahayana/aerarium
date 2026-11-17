@@ -306,7 +306,7 @@
                             style="font-size:11px; padding:3px 9px; border-radius:4px; cursor:pointer; border:1px solid #ef444444; background:#ef444410; color:#ef4444; font-family:inherit;"
                           >{actionLoading === dok.id ? '...' : '⟳ Geser'}</button>
                         {/if}
-                        <span style="font-size:12px; color:var(--text-3);">→</span>
+
                       </div>
                     </div>
                   {/each}
@@ -315,10 +315,13 @@
             </div>
 
             <!-- Panah koneksi antar tahap dalam group -->
-            {#if tahap.next && byJenis(tahap.jenis).length > 0}
-              <div style="display:flex; align-items:center; gap:8px; padding:4px 0 4px 28px;">
-                <div style="width:1px; height:16px; background:var(--border);"></div>
-                <span style="font-size:10px; color:var(--text-3);">Jadikan {tahap.next} →</span>
+            {#if tahap.next && byJenis(tahap.jenis).length > 0 && byJenis(tahap.next).length === 0}
+              <div style="display:flex; align-items:center; gap:8px; padding:6px 0 2px 16px;">
+                <div style="width:1px; height:20px; background:var(--border); margin-left:4px;"></div>
+                <a
+                  href="/dokumen/buat?jenis={encodeURIComponent(tahap.next)}"
+                  style="font-size:11px; color:var(--text-3); padding:3px 10px; border:1px dashed var(--border); border-radius:5px; text-decoration:none; display:flex; align-items:center; gap:4px;"
+                >+ Buat {tahap.next}</a>
               </div>
             {/if}
           {/each}

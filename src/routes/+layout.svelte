@@ -36,8 +36,10 @@
 <div style="display:flex; height:100vh; overflow:hidden;">
   <aside class="sidebar" style="width:220px; display:flex; flex-direction:column; flex-shrink:0;">
     <div style="padding:20px 16px 16px; border-bottom:1px solid var(--border);">
-      <div style="font-size:16px; font-weight:700; color:var(--text); letter-spacing:-0.02em;">Aerarium</div>
-      <div style="font-size:11px; color:var(--text-3); margin-top:2px; font-weight:500;">Budget Workspace</div>
+      <div class="sidebar-header">
+        <div style="font-size:16px; font-weight:700; letter-spacing:-0.02em;">Aerarium</div>
+        <div class="subtitle" style="font-size:11px; margin-top:2px; font-weight:500;">Budget Workspace</div>
+      </div>
     </div>
 
     <nav style="flex:1; padding:12px 8px; overflow-y:auto;">
