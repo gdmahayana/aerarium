@@ -91,14 +91,16 @@
   let activeTab = $state<'dokumen' | 'alur'>('dokumen');
 
   // Filter dari sidebar
-  const filterMap: Record<string, string> = {
-    persiapan: "Persiapan",
-    pagu: "Persiapan",
-    rka: "Penganggaran",
-    dpa: "Penganggaran",
-    perubahan: "Perubahan",
+  const filterMap: Record<string, { group: string; tab: 'dokumen' | 'alur' }> = {
+    persiapan: { group: 'Persiapan',    tab: 'dokumen' },
+    pagu:      { group: 'Persiapan',    tab: 'dokumen' },
+    rka:       { group: 'Penganggaran', tab: 'dokumen' },
+    dpa:       { group: 'Penganggaran', tab: 'dokumen' },
+    perubahan: { group: 'Perubahan',    tab: 'dokumen' },
+    alur:      { group: '',             tab: 'alur'    },
   };
-  let activeGroup = $derived(filterMap[$page.url.searchParams.get("filter") || ""] || null);
+  let activeFilter = $derived(filterMap[$page.url.searchParams.get('filter') || ''] || null);
+  let activeGroup  = $derived(activeFilter?.group || null);
 
   let actionLoading = $state<number | null>(null);
 
@@ -142,11 +144,14 @@
   }
 
   $effect(() => {
-    if (activeGroup) {
-      tick().then(() => {
-        const el = document.getElementById('group-' + activeGroup);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+    if (activeFilter) {
+      activeTab = activeFilter.tab;
+      if (activeFilter.tab === 'dokumen' && activeFilter.group) {
+        tick().then(() => {
+          const el = document.getElementById('group-' + activeFilter!.group);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
     }
   });
 </script>

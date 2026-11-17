@@ -40,6 +40,7 @@
         { href: "/dokumen?filter=rka", label: "RKA-SKPD" },
         { href: "/dokumen?filter=dpa", label: "DPA-SKPD" },
         { href: "/dokumen?filter=perubahan", label: "Perubahan APBD" },
+        { href: "/dokumen?filter=alur", label: "Alur Dokumen" },
       ]
     },
     {
@@ -78,7 +79,7 @@
     </nav>
 
     <div style="padding:12px 16px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-      <div style="font-size:11px; color:var(--text-3); font-weight:500;">v0.1.0-dev · AGPL-3.0</div>
+      <div style="font-size:11px; color:var(--text-3); font-weight:500;">v0.4.0-dev · AGPL-3.0</div>
       <button
         onclick={toggleTheme}
         style="background:none; border:1px solid var(--border); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:12px; color:var(--text-3); font-family:inherit; display:flex; align-items:center; gap:4px;"
