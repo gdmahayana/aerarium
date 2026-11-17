@@ -105,6 +105,12 @@ fn buat_dokumen(input: BuatDokumenInput) -> Result<i64, String> {
 }
 
 #[tauri::command]
+fn ubah_status_dokumen(id: i64, status_baru: String) -> Result<(), String> {
+    let conn = crate::db::init_db().map_err(|e| e.to_string())?;
+    dok::ubah_status(&conn, id, &status_baru)
+}
+
+#[tauri::command]
 fn tetapkan_dokumen(id: i64, label: String) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     dok::tetapkan(&conn, id, &label)
@@ -561,6 +567,7 @@ pub fn run() {
             hapus_tahun_anggaran,
             get_dokumen,
             buat_dokumen,
+            ubah_status_dokumen,
             tetapkan_dokumen,
             jadikan_rka,
             jadikan_dpa,

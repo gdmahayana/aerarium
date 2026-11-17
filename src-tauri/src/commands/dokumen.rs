@@ -627,6 +627,39 @@ pub fn jadikan_dppa(conn: &Connection, rkap_id: i64) -> Result<i64, String> {
     Ok(dppa_id)
 }
 
+pub fn ubah_status(conn: &Connection, id: i64, status_baru: &str) -> Result<(), String> {
+    let status = StatusDokumen::from_str(status_baru)
+        .ok_or_else(|| format!("Status tidak valid: {}", status_baru))?;
+    let dokumen = get_by_id(conn, id)?;
+
+    // Validasi transisi status
+    let valid = match (&dokumen.status, &status) {
+        (StatusDokumen::Draft,      StatusDokumen::Konsep)      => true,
+        (StatusDokumen::Konsep,     StatusDokumen::Draft)       => true,
+        (StatusDokumen::Konsep,     StatusDokumen::Ditetapkan)  => true,
+        (StatusDokumen::Ditetapkan, StatusDokumen::Dikunci)     => true,
+        (StatusDokumen::Dikunci,    StatusDokumen::Diarsipkan)  => true,
+        (StatusDokumen::Ditetapkan, StatusDokumen::Konsep)      => true,
+        _ => false,
+    };
+    if !valid {
+        return Err(format!(
+            "Tidak bisa ubah status dari '{}' ke '{}'",
+            dokumen.status.as_str(), status_baru
+        ));
+    }
+
+    let extra = if status == StatusDokumen::Ditetapkan {
+        ", ditetapkan_at = CURRENT_TIMESTAMP"
+    } else { "" };
+
+    conn.execute(
+        &format!("UPDATE dokumen SET status = ?1{} WHERE id = ?2", extra),
+        rusqlite::params![status_baru, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn buat_pergeseran(conn: &Connection, dokumen_id: i64) -> Result<i64, String> {
     let asal = get_by_id(conn, dokumen_id)?;
     let jenis_valid = asal.jenis.as_str() == "RKA-SKPD" ||

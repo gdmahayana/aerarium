@@ -229,6 +229,27 @@
     } catch(e) { error = String(e); actionLoading = null; }
   }
 
+  const transisiValid: Record<string, string[]> = {
+    draft:      ['konsep'],
+    konsep:     ['draft', 'ditetapkan'],
+    ditetapkan: ['konsep', 'dikunci'],
+    dikunci:    ['diarsipkan'],
+    diarsipkan: [],
+  };
+  const statusLabel: Record<string, string> = {
+    draft: 'Draft', konsep: 'Konsep', ditetapkan: 'Ditetapkan',
+    dikunci: 'Dikunci', diarsipkan: 'Diarsipkan',
+  };
+
+  async function ubahStatus(dokId: number, statusBaru: string) {
+    try {
+      actionLoading = dokId;
+      await invoke('ubah_status_dokumen', { id: dokId, statusBaru });
+      dokumenList = await invoke('get_dokumen', { tahunAnggaranId: tahunAktif!.id });
+    } catch(e) { error = String(e); }
+    finally { actionLoading = null; }
+  }
+
   async function quickPergeseran(dokumenId: number) {
     if (!confirm('Buat pergeseran anggaran? Dokumen ini akan dikunci dan rinciannya disalin ke versi baru.')) return;
     actionLoading = dokumenId;
@@ -366,11 +387,26 @@
 
                       <!-- Kanan: status + tombol -->
                       <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="
-                          font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;
-                          background:{(statusStyle[dok.status] || statusStyle.draft).bg}; color:{(statusStyle[dok.status] || statusStyle.draft).color};
-                          letter-spacing:0.05em; text-transform:uppercase;
-                        ">{(statusStyle[dok.status] || statusStyle.draft).label}</span>
+                        {#if transisiValid[dok.status]?.length > 0}
+                          <select
+                            value={dok.status}
+                            onchange={(e) => { e.stopPropagation(); ubahStatus(dok.id, (e.target as HTMLSelectElement).value); }}
+                            onclick={(e) => e.stopPropagation()}
+                            disabled={actionLoading === dok.id}
+                            style="font-size:11px; padding:2px 6px; border-radius:4px; cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); font-family:inherit;"
+                          >
+                            <option value={dok.status}>{statusLabel[dok.status] || dok.status}</option>
+                            {#each transisiValid[dok.status] || [] as s}
+                              <option value={s}>→ {statusLabel[s] || s}</option>
+                            {/each}
+                          </select>
+                        {:else}
+                          <span style="
+                            font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;
+                            background:{(statusStyle[dok.status] || statusStyle.draft).bg}; color:{(statusStyle[dok.status] || statusStyle.draft).color};
+                            letter-spacing:0.05em; text-transform:uppercase;
+                          ">{(statusStyle[dok.status] || statusStyle.draft).label}</span>
+                        {/if}
                         {#if tahap.jenis === 'RKA-SKPD' && (dok.status === 'draft' || dok.status === 'konsep')}
                           <button
                             onclick={(e) => { e.stopPropagation(); quickJadikanDpa(dok.id); }}
