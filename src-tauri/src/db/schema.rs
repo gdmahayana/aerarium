@@ -22,7 +22,8 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tahun_anggaran_id INTEGER NOT NULL,
             jenis TEXT NOT NULL CHECK(jenis IN (
-                'Kertas Kerja','Pagu Indikatif','RKA-SKPD','DPA-SKPD','RKA-SKPD Perubahan','DPPA-SKPD'
+                'Kertas Kerja','Pagu Indikatif','RKA-SKPD','DPA-SKPD','RKA-SKPD Perubahan','DPPA-SKPD',
+                'Perubahan DPA-SKPD','Perubahan DPPA-SKPD'
             )),
             versi INTEGER NOT NULL DEFAULT 1,
             nomor_se TEXT,

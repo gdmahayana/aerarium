@@ -30,6 +30,10 @@ pub enum JenisDokumen {
     RkaSkpdPerubahan,
     #[serde(rename = "DPPA-SKPD")]
     DppaSkpd,
+    #[serde(rename = "Perubahan DPA-SKPD")]
+    PerubahanDpaSkpd,
+    #[serde(rename = "Perubahan DPPA-SKPD")]
+    PerubahanDppaSkpd,
 }
 
 impl JenisDokumen {
@@ -41,6 +45,8 @@ impl JenisDokumen {
             JenisDokumen::DpaSkpd => "DPA-SKPD",
             JenisDokumen::RkaSkpdPerubahan => "RKA-SKPD Perubahan",
             JenisDokumen::DppaSkpd => "DPPA-SKPD",
+            JenisDokumen::PerubahanDpaSkpd => "Perubahan DPA-SKPD",
+            JenisDokumen::PerubahanDppaSkpd => "Perubahan DPPA-SKPD",
         }
     }
 
@@ -52,6 +58,8 @@ impl JenisDokumen {
             "DPA-SKPD" => Some(JenisDokumen::DpaSkpd),
             "RKA-SKPD Perubahan" => Some(JenisDokumen::RkaSkpdPerubahan),
             "DPPA-SKPD" => Some(JenisDokumen::DppaSkpd),
+            "Perubahan DPA-SKPD" => Some(JenisDokumen::PerubahanDpaSkpd),
+            "Perubahan DPPA-SKPD" => Some(JenisDokumen::PerubahanDppaSkpd),
             _ => None,
         }
     }

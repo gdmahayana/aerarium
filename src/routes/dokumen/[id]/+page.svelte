@@ -104,6 +104,8 @@
     "DPA-SKPD":            { warna: "#f59e0b", warnaGlow: "#f59e0b15", icon: "▸", tagline: "Dokumen Pelaksanaan Anggaran", adaSE: true },
     "RKA-SKPD Perubahan":  { warna: "#10b981", warnaGlow: "#10b98115", icon: "▸", tagline: "RKA Perubahan", adaSE: true },
     "DPPA-SKPD":           { warna: "#f59e0b", warnaGlow: "#f59e0b15", icon: "▸", tagline: "Dokumen Pelaksanaan Perubahan Anggaran", adaSE: true },
+    "Perubahan DPA-SKPD":   { warna: "#ef4444", warnaGlow: "#ef444415", icon: "⟳", tagline: "Pergeseran Anggaran · DPA", adaSE: true },
+    "Perubahan DPPA-SKPD":  { warna: "#ef4444", warnaGlow: "#ef444415", icon: "⟳", tagline: "Pergeseran Anggaran · DPPA", adaSE: true },
   };
 
   const cfg = $derived(dokumen ? (jenisConfig[dokumen.jenis] || jenisConfig["RKA-SKPD"]) : jenisConfig["RKA-SKPD"]);
@@ -443,7 +445,7 @@
 
       <!-- Action buttons kontekstual -->
       <div style="display:flex; gap:8px; align-items:center;">
-        {#if dokumen.jenis === "Kertas Kerja"}
+        {#if dokumen.jenis === "Kertas Kerja" || dokumen.jenis === "Pagu Indikatif"}
           <a href="/dokumen/{dokumenId}/petakan" class="btn btn-ghost" style="font-size:12px;">🔄 Petakan SHS</a>
         {/if}
         <a href="/dokumen/{dokumenId}/sipd" class="btn btn-ghost" style="font-size:12px;">📋 View SIPD</a>

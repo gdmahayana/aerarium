@@ -30,6 +30,45 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // Migrasi 6: tambah Perubahan DPA-SKPD dan Perubahan DPPA-SKPD ke CHECK constraint
+    if versi_max < 6 {
+        conn.execute_batch(r#"
+            PRAGMA foreign_keys = OFF;
+
+            CREATE TABLE IF NOT EXISTS dokumen_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tahun_anggaran_id INTEGER NOT NULL,
+                jenis TEXT NOT NULL CHECK(jenis IN (
+                    'Kertas Kerja','Pagu Indikatif','RKA-SKPD','DPA-SKPD','RKA-SKPD Perubahan','DPPA-SKPD',
+                    'Perubahan DPA-SKPD','Perubahan DPPA-SKPD'
+                )),
+                versi INTEGER NOT NULL DEFAULT 1,
+                nomor_se TEXT,
+                tanggal_se TEXT,
+                status TEXT NOT NULL CHECK(status IN (
+                    'draft','konsep','ditetapkan','dikunci','diarsipkan'
+                )) DEFAULT 'draft',
+                asal_id INTEGER,
+                asal_keterangan TEXT,
+                catatan TEXT,
+                ditetapkan_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tahun_anggaran_id) REFERENCES tahun_anggaran(id),
+                FOREIGN KEY (asal_id) REFERENCES dokumen(id)
+            );
+
+            INSERT INTO dokumen_new SELECT * FROM dokumen;
+            DROP TABLE dokumen;
+            ALTER TABLE dokumen_new RENAME TO dokumen;
+
+            PRAGMA foreign_keys = ON;
+        "#)?;
+        conn.execute(
+            "INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (6, 'Tambah Perubahan DPA-SKPD dan Perubahan DPPA-SKPD ke jenis dokumen')",
+            [],
+        )?;
+    }
+
     Ok(())
 }
 
