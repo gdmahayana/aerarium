@@ -311,7 +311,7 @@
       error = "Ada sub kegiatan dengan item belum SHS Resmi.";
       return;
     }
-    if (!confirm("Jadikan dokumen ini sebagai RKA-SKPD? Semua rincian akan disalin.")) return;
+    
     try {
       const rkaId = await invoke<number>("jadikan_rka", { kertasKerjaId: dokumenId });
       toast.success('RKA-SKPD berhasil dibuat.');
@@ -332,7 +332,7 @@
     } catch(e) { toast.error(String(e)); }
   }
   async function jadikanDpa() {
-    if (!confirm('Jadikan RKA-SKPD ini sebagai DPA-SKPD? Semua rincian akan disalin.')) return;
+    
     try {
       const id = await invoke<number>('jadikan_dpa', { rkaId: dokumenId });
       toast.success('DPA-SKPD berhasil dibuat.');
@@ -341,7 +341,7 @@
   }
 
   async function jadikanDppa() {
-    if (!confirm('Jadikan RKA-SKPD Perubahan ini sebagai DPPA-SKPD? Semua rincian akan disalin.')) return;
+    
     try {
       const id = await invoke<number>('jadikan_dppa', { rkapId: dokumenId });
       toast.success('DPPA-SKPD berhasil dibuat.');
@@ -350,7 +350,7 @@
   }
 
   async function buatPergeseran() {
-    if (!confirm('Buat versi revisi baru? Dokumen ini akan dikunci dan rinciannya disalin ke versi baru.')) return;
+    
     try {
       const id = await invoke<number>('buat_pergeseran', { dokumenId });
       toast.success('Pergeseran anggaran berhasil dibuat.');

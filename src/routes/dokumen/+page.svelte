@@ -99,7 +99,7 @@
   }
 
   async function quickJadikanDpa(rkaId: number) {
-    if (!confirm('Jadikan RKA-SKPD ini sebagai DPA-SKPD?')) return;
+    
     actionLoading = rkaId;
     try {
       const id = await invoke<number>('jadikan_dpa', { rkaId });
@@ -109,7 +109,7 @@
   }
 
   async function quickJadikanDppa(rkapId: number) {
-    if (!confirm('Jadikan RKA-SKPD Perubahan ini sebagai DPPA-SKPD?')) return;
+    
     actionLoading = rkapId;
     try {
       const id = await invoke<number>('jadikan_dppa', { rkapId });
@@ -132,7 +132,7 @@
   }
 
   async function quickPergeseran(dokumenId: number) {
-    if (!confirm('Buat pergeseran anggaran? Dokumen ini akan dikunci dan rinciannya disalin ke versi baru.')) return;
+    
     actionLoading = dokumenId;
     try {
       const id = await invoke<number>('buat_pergeseran', { dokumenId });

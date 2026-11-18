@@ -1,6 +1,7 @@
 <script lang="ts">
   import "../app.css";
   import Toast from "$lib/components/Toast.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { page } from "$app/stores";
   import { onMount } from "svelte";
 
@@ -69,3 +70,4 @@
   </main>
 </div>
 <Toast />
+<ConfirmDialog />
