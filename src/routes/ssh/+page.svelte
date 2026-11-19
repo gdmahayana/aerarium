@@ -156,10 +156,10 @@
       shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
       showModalImport = false;
       toast.success(
-        importJenis + " Resmi: " + result.inserted + " baru, " +
-        result.updated + " diperbarui, " + result.skipped + " dilewati. " +
-        result.kode_barang_inserted + " kode barang, " +
-        result.rekening_inserted + " relasi rekening."
+        importJenis + " Resmi selesai! " +
+        result.inserted + " baru · " + result.updated + " diperbarui · " + result.skipped + " dilewati | " +
+        result.kode_barang_inserted + " kode barang · " + result.rekening_inserted + " relasi rekening",
+        8000
       );
     } catch(e) { toast.error(String(e)); }
     finally { importing = false; }

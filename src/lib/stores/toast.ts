@@ -23,10 +23,10 @@ function createToastStore() {
   }
 
   return { subscribe, show, dismiss,
-    success: (msg: string) => show(msg, 'success'),
-    error:   (msg: string) => show(msg, 'error', 5000),
-    warning: (msg: string) => show(msg, 'warning'),
-    info:    (msg: string) => show(msg, 'info'),
+    success: (msg: string, duration = 3000) => show(msg, 'success', duration),
+    error:   (msg: string, duration = 5000) => show(msg, 'error', duration),
+    warning: (msg: string, duration = 4000) => show(msg, 'warning', duration),
+    info:    (msg: string, duration = 3000) => show(msg, 'info', duration),
   };
 }
 

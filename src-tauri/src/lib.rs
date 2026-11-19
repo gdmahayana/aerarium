@@ -55,9 +55,11 @@ fn hapus_shs(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn import_shs(file_path: String, tahun_anggaran_id: i64, jenis: String) -> Result<ImportResult, String> {
-    let conn = db::init_db().map_err(|e| e.to_string())?;
-    import_shs_from_excel(&conn, &file_path, tahun_anggaran_id, &jenis)
+async fn import_shs(file_path: String, tahun_anggaran_id: i64, jenis: String) -> Result<ImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = db::init_db().map_err(|e| e.to_string())?;
+        import_shs_from_excel(&conn, &file_path, tahun_anggaran_id, &jenis)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
