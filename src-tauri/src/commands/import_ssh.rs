@@ -220,6 +220,35 @@ pub fn get_kode_barang(conn: &Connection) -> Result<Vec<(i64, String, String)>, 
     Ok(result)
 }
 
+pub fn search_shs(conn: &Connection, tahun_anggaran_id: i64, query: &str, sumber: &str, limit: i64) -> Result<Vec<ShsItem>, String> {
+    let q = format!("%{}%", query.to_lowercase());
+    let mut stmt = conn.prepare(
+        "SELECT id, jenis, sumber, kode, kode_kelompok, uraian_kelompok, id_sipd, uraian, spesifikasi, satuan, harga, kode_rekening
+         FROM shs
+         WHERE tahun_anggaran_id = ?1
+           AND sumber = ?2
+           AND (LOWER(uraian) LIKE ?3 OR LOWER(kode) LIKE ?3 OR LOWER(spesifikasi) LIKE ?3)
+         ORDER BY
+           CASE WHEN LOWER(uraian) LIKE ?4 THEN 0 ELSE 1 END,
+           uraian
+         LIMIT ?5"
+    ).map_err(|e| e.to_string())?;
+
+    let starts_with = format!("{}%", query.to_lowercase());
+    let result = stmt.query_map(
+        rusqlite::params![tahun_anggaran_id, sumber, q, starts_with, limit],
+        |row| Ok(ShsItem {
+            id: row.get(0)?, jenis: row.get(1)?, sumber: row.get(2)?,
+            kode: row.get(3)?, kode_kelompok: row.get(4)?, uraian_kelompok: row.get(5)?,
+            id_sipd: row.get(6)?, uraian: row.get(7)?, spesifikasi: row.get(8)?,
+            satuan: row.get(9)?, harga: row.get(10)?, kode_rekening: row.get(11)?,
+        })
+    ).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+    Ok(result)
+}
+
 pub fn get_shs_rekening(conn: &Connection, shs_id: i64) -> Result<Vec<String>, String> {
     let mut stmt = conn
         .prepare("SELECT kode_rekening FROM shs_rekening WHERE shs_id = ?1 ORDER BY id")

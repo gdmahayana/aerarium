@@ -109,7 +109,8 @@
   let fRealisasi = $state("");
   let activeKetId = $state<number | null>(null);
   let koefCount = $state(1);
-  let shsList = $state<ShsItem[]>([]);
+  let shsResults = $state<ShsItem[]>([]);
+  let searchTimer = $state<ReturnType<typeof setTimeout> | null>(null);
   let cariShs = $state("");
   let sumberShs = $state<"rencana"|"resmi">("rencana");
   let showShsResults = $state(false);
@@ -128,14 +129,7 @@
     harga: "", ppn: false,
   });
 
-  let shsFiltered = $derived(
-    cariShs.length < 2 ? [] :
-    shsList.filter(s => s.sumber === sumberShs).filter(s =>
-      s.uraian.toLowerCase().includes(cariShs.toLowerCase()) ||
-      s.kode.toLowerCase().includes(cariShs.toLowerCase()) ||
-      (s.spesifikasi && s.spesifikasi.toLowerCase().includes(cariShs.toLowerCase()))
-    ).slice(0, 8)
-  );
+
 
   let totalItem = $derived(() => {
     const v1 = parseFloat(fItem.volume) || 0;
@@ -224,7 +218,7 @@
       const ta = tahunList.find((t: any) => t.aktif);
       if (ta) {
         tahunAktifId = ta.id;
-        shsList = await invoke<ShsItem[]>("get_shs", { tahunAnggaranId: ta.id });
+        // SHS dimuat via search server-side, tidak perlu load semua
         const dskList = await invoke<any[]>("get_dokumen_sub_kegiatan", { dokumenId });
         const thisDsk = dskList.find((d: any) => d.id === subId);
         if (thisDsk) bebasShs = thisDsk.bebas_shs;
@@ -243,6 +237,26 @@
 
 
 
+  async function searchShs(query: string) {
+    if (query.length < 2) { shsResults = []; return; }
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+      try {
+        const ta = await invoke<any[]>("get_tahun_anggaran");
+        const aktif = ta.find((t: any) => t.aktif);
+        if (!aktif) return;
+        shsResults = await invoke<ShsItem[]>("search_shs", {
+          tahunAnggaranId: aktif.id,
+          query,
+          sumber: sumberShs,
+          limit: 20,
+        });
+      } catch(e) { console.error(e); }
+    }, 250);
+  }
+
+
+
   function pilihShs(shs: ShsItem) {
     fItem.uraian = shs.uraian;
     fItem.spesifikasi = shs.spesifikasi || "";
@@ -250,6 +264,7 @@
     fItem.harga = String(shs.harga);
     cariShs = shs.uraian;
     selectedShsId = shs.id;
+    shsResults = [];
     showShsResults = false;
     // Auto-suggest rekening
     if (shs.kode_rekening && !fRekKode) {
@@ -460,9 +475,9 @@
             onfocus={() => showShsResults = cariShs.length >= 2}
             placeholder="Ketik nama barang untuk cari SHS..."
           />
-          {#if showShsResults && shsFiltered.length > 0}
+          {#if showShsResults && shsResults.length > 0}
             <div style="position:absolute; top:100%; left:0; right:0; z-index:200; background:var(--surface); border:1px solid var(--border); border-radius:6px; margin-top:4px; max-height:240px; overflow-y:auto; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
-              {#each shsFiltered as shs}
+              {#each shsResults as shs}
                 <button
                   style="width:100%; text-align:left; padding:10px 14px; background:transparent; border:none; border-bottom:1px solid var(--border); cursor:pointer; display:flex; flex-direction:column; gap:2px;"
                   onmouseenter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
@@ -484,7 +499,7 @@
                 </button>
               {/each}
             </div>
-          {:else if showShsResults && cariShs.length >= 2 && shsFiltered.length === 0}
+          {:else if showShsResults && cariShs.length >= 2 && shsResults.length === 0}
             <div style="position:absolute; top:100%; left:0; right:0; z-index:200; background:var(--surface); border:1px solid var(--border); border-radius:6px; margin-top:4px; padding:12px 14px;">
               <span style="font-size:12px; color:var(--text-3);">Tidak ditemukan di SHS — input manual di bawah</span>
             </div>
