@@ -102,6 +102,33 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // Migrasi 8: tambah tabel kode_barang dan shs_rekening
+    if versi_max < 8 {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS kode_barang (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kode TEXT NOT NULL UNIQUE,
+                uraian TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_kode_barang_kode ON kode_barang(kode);
+
+            CREATE TABLE IF NOT EXISTS shs_rekening (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                shs_id INTEGER NOT NULL,
+                kode_rekening TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (shs_id) REFERENCES shs(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_shs_rekening_shs ON shs_rekening(shs_id);
+            CREATE INDEX IF NOT EXISTS idx_shs_rekening_kode ON shs_rekening(kode_rekening);
+        "#)?;
+        conn.execute(
+            "INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (8, 'Tambah tabel kode_barang dan shs_rekening')",
+            [],
+        )?;
+    }
+
     Ok(())
 }
 

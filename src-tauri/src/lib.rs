@@ -2,7 +2,7 @@ mod db;
 mod commands;
 mod models;
 
-use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd, tambah_shs_manual as tambah_shs_cmd, hapus_shs as hapus_shs_cmd};
+use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd, tambah_shs_manual as tambah_shs_cmd, hapus_shs as hapus_shs_cmd, get_kode_barang as get_kode_barang_cmd, ImportResult};
 use commands::export::{export_shs_rencana as export_shs_rencana_cmd, export_kertas_kerja as export_kertas_kerja_cmd};
 use commands::rincian as rin;
 use commands::pagu_indikatif as pi;
@@ -55,9 +55,15 @@ fn hapus_shs(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn import_shs(file_path: String, tahun_anggaran_id: i64, jenis: String) -> Result<usize, String> {
+fn import_shs(file_path: String, tahun_anggaran_id: i64, jenis: String) -> Result<ImportResult, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     import_shs_from_excel(&conn, &file_path, tahun_anggaran_id, &jenis)
+}
+
+#[tauri::command]
+fn get_kode_barang() -> Result<Vec<(i64, String, String)>, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    get_kode_barang_cmd(&conn)
 }
 
 #[tauri::command]
@@ -556,6 +562,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             import_shs,
+            get_kode_barang,
             get_shs,
             export_shs_rencana,
             export_kertas_kerja,

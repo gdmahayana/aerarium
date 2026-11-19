@@ -18,12 +18,21 @@ pub struct ShsItem {
     pub kode_rekening: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImportResult {
+    pub inserted: usize,
+    pub updated: usize,
+    pub skipped: usize,
+    pub kode_barang_inserted: usize,
+    pub rekening_inserted: usize,
+}
+
 pub fn import_shs_from_excel(
     conn: &Connection,
     file_path: &str,
     tahun_anggaran_id: i64,
     jenis: &str,
-) -> Result<usize, String> {
+) -> Result<ImportResult, String> {
     let mut workbook: Xlsx<_> =
         open_workbook(file_path).map_err(|e| format!("Gagal buka file: {}", e))?;
 
@@ -37,38 +46,124 @@ pub fn import_shs_from_excel(
         .worksheet_range(&sheet_name)
         .map_err(|e| format!("Gagal baca sheet: {}", e))?;
 
-    let mut count = 0;
+    let mut result = ImportResult {
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        kode_barang_inserted: 0,
+        rekening_inserted: 0,
+    };
 
     for row in range.rows().skip(1) {
-        // Struktur SIPD:
-        // A=kode_kelompok, B=uraian_kelompok, C=id_sipd, D=kode, E=uraian, F=spesifikasi, G=satuan, H=harga, I=kode_rekening
+        // Kolom: A=kode_kelompok B=uraian_kelompok C=id_sipd D=kode E=uraian F=spesifikasi G=satuan H=harga I=kode_rekening
         let kode_kelompok = row.get(0).map(|c| c.to_string()).filter(|s| !s.is_empty());
         let uraian_kelompok = row.get(1).map(|c| c.to_string()).filter(|s| !s.is_empty());
-        let id_sipd = row.get(2).map(|c| c.to_string()).filter(|s| !s.is_empty());
-        let kode = row.get(3).map(|c| c.to_string()).unwrap_or_default();
-        let uraian = row.get(4).map(|c| c.to_string()).unwrap_or_default();
+        let id_sipd = row.get(2).map(|c| {
+            if let Some(f) = c.get_float() {
+                (f as i64).to_string()
+            } else {
+                c.to_string()
+            }
+        }).filter(|s| !s.is_empty());
+        let kode = match row.get(3) {
+            Some(c) => c.to_string(),
+            None => continue,
+        };
+        let uraian = match row.get(4) {
+            Some(c) => c.to_string(),
+            None => continue,
+        };
         let spesifikasi = row.get(5).map(|c| c.to_string()).filter(|s| !s.is_empty());
         let satuan = row.get(6).map(|c| c.to_string()).unwrap_or_default();
         let harga = row.get(7).and_then(|c| c.get_float()).unwrap_or(0.0);
-        let kode_rekening = row.get(8).map(|c| c.to_string()).filter(|s| !s.is_empty());
+        let kode_rekening_raw = row.get(8).map(|c| c.to_string()).filter(|s| !s.is_empty());
 
-        if kode.is_empty() && uraian.is_empty() {
+        if kode.is_empty() || uraian.is_empty() {
+            result.skipped += 1;
             continue;
         }
 
-        conn.execute(
-            "INSERT INTO shs (tahun_anggaran_id, jenis, sumber, kode, kode_kelompok, uraian_kelompok, id_sipd, uraian, spesifikasi, satuan, harga, kode_rekening)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-            rusqlite::params![tahun_anggaran_id, jenis, "resmi", kode, kode_kelompok, uraian_kelompok, id_sipd, uraian, spesifikasi, satuan, harga, kode_rekening],
-        )
-        .map_err(|e| format!("Gagal simpan data: {}", e))?;
+        // 1. Upsert kode_barang dari kode_kelompok
+        if let (Some(kk), Some(uk)) = (&kode_kelompok, &uraian_kelompok) {
+            let affected = conn.execute(
+                "INSERT INTO kode_barang (kode, uraian) VALUES (?1, ?2)
+                 ON CONFLICT(kode) DO UPDATE SET uraian = excluded.uraian",
+                rusqlite::params![kk, uk],
+            ).map_err(|e| format!("Gagal simpan kode_barang: {}", e))?;
+            if affected > 0 {
+                result.kode_barang_inserted += 1;
+            }
+        }
 
-        count += 1;
+        // Rekening utama = yang pertama dalam list
+        let kode_rekening_utama = kode_rekening_raw.as_ref().map(|s| {
+            s.split(',').next().unwrap_or("").trim().to_string()
+        }).filter(|s| !s.is_empty());
+
+        // 2. Upsert shs — pakai id_sipd sebagai key unik kalau ada, fallback ke kode+tahun
+        let shs_id: i64 = if let Some(ref sid) = id_sipd {
+            // Cek apakah sudah ada
+            let existing: Option<i64> = conn.query_row(
+                "SELECT id FROM shs WHERE id_sipd = ?1 AND tahun_anggaran_id = ?2",
+                rusqlite::params![sid, tahun_anggaran_id],
+                |row| row.get(0),
+            ).ok();
+
+            if let Some(id) = existing {
+                // Update
+                conn.execute(
+                    "UPDATE shs SET kode=?1, kode_kelompok=?2, uraian_kelompok=?3,
+                      uraian=?4, spesifikasi=?5, satuan=?6, harga=?7, kode_rekening=?8
+                      WHERE id=?9",
+                    rusqlite::params![kode, kode_kelompok, uraian_kelompok, uraian,
+                        spesifikasi, satuan, harga, kode_rekening_utama, id],
+                ).map_err(|e| format!("Gagal update shs: {}", e))?;
+                result.updated += 1;
+                // Hapus rekening lama sebelum insert baru
+                conn.execute("DELETE FROM shs_rekening WHERE shs_id = ?1",
+                    rusqlite::params![id]).ok();
+                id
+            } else {
+                // Insert baru
+                conn.execute(
+                    "INSERT INTO shs (tahun_anggaran_id, jenis, sumber, kode, kode_kelompok,
+                      uraian_kelompok, id_sipd, uraian, spesifikasi, satuan, harga, kode_rekening)
+                      VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+                    rusqlite::params![tahun_anggaran_id, jenis, "resmi", kode, kode_kelompok,
+                        uraian_kelompok, sid, uraian, spesifikasi, satuan, harga, kode_rekening_utama],
+                ).map_err(|e| format!("Gagal insert shs: {}", e))?;
+                result.inserted += 1;
+                conn.last_insert_rowid()
+            }
+        } else {
+            // Tidak ada id_sipd — insert saja
+            conn.execute(
+                "INSERT INTO shs (tahun_anggaran_id, jenis, sumber, kode, kode_kelompok,
+                  uraian_kelompok, id_sipd, uraian, spesifikasi, satuan, harga, kode_rekening)
+                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+                rusqlite::params![tahun_anggaran_id, jenis, "resmi", kode, kode_kelompok,
+                    uraian_kelompok, Option::<String>::None, uraian, spesifikasi, satuan, harga, kode_rekening_utama],
+            ).map_err(|e| format!("Gagal insert shs: {}", e))?;
+            result.inserted += 1;
+            conn.last_insert_rowid()
+        };
+
+        // 3. Insert semua kode_rekening ke shs_rekening
+        if let Some(ref rekening_str) = kode_rekening_raw {
+            for kr in rekening_str.split(',') {
+                let kr = kr.trim();
+                if kr.is_empty() { continue; }
+                conn.execute(
+                    "INSERT INTO shs_rekening (shs_id, kode_rekening) VALUES (?1, ?2)",
+                    rusqlite::params![shs_id, kr],
+                ).map_err(|e| format!("Gagal insert shs_rekening: {}", e))?;
+                result.rekening_inserted += 1;
+            }
+        }
     }
 
-    Ok(count)
+    Ok(result)
 }
-
 
 pub fn tambah_shs_manual(conn: &Connection, tahun_anggaran_id: i64, jenis: &str, sumber: &str, kode: &str, uraian: &str, spesifikasi: Option<&str>, satuan: &str, harga: f64) -> Result<i64, String> {
     conn.execute(
@@ -110,5 +205,29 @@ pub fn get_shs(conn: &Connection, tahun_anggaran_id: i64) -> Result<Vec<ShsItem>
         .filter_map(|r| r.ok())
         .collect();
 
+    Ok(result)
+}
+
+pub fn get_kode_barang(conn: &Connection) -> Result<Vec<(i64, String, String)>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, kode, uraian FROM kode_barang ORDER BY kode")
+        .map_err(|e| e.to_string())?;
+    let result = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(result)
+}
+
+pub fn get_shs_rekening(conn: &Connection, shs_id: i64) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT kode_rekening FROM shs_rekening WHERE shs_id = ?1 ORDER BY id")
+        .map_err(|e| e.to_string())?;
+    let result = stmt
+        .query_map(rusqlite::params![shs_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
     Ok(result)
 }
