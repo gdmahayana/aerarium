@@ -148,14 +148,19 @@
         filters: [{ name: "Excel", extensions: ["xlsx", "xls"] }],
       });
       if (!filePath) return;
-      const count = await invoke<number>("import_shs", {
+      const result = await invoke<{inserted:number, updated:number, skipped:number, kode_barang_inserted:number, rekening_inserted:number}>("import_shs", {
         filePath: filePath as string,
         tahunAnggaranId: tahunAktif.id,
         jenis: importJenis,
       });
       shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
       showModalImport = false;
-      alert("Berhasil import " + count + " item " + importJenis + " Resmi");
+      toast.success(
+        importJenis + " Resmi: " + result.inserted + " baru, " +
+        result.updated + " diperbarui, " + result.skipped + " dilewati. " +
+        result.kode_barang_inserted + " kode barang, " +
+        result.rekening_inserted + " relasi rekening."
+      );
     } catch(e) { toast.error(String(e)); }
     finally { importing = false; }
   }
