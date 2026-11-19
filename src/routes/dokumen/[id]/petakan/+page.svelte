@@ -30,23 +30,32 @@
   let sukses = $state("");
 
   let shsRencanaList = $state<ShsRencana[]>([]);
-  let shsResmiList = $state<ShsResmi[]>([]);
+  let tahunAktifId = $state<number | null>(null);
 
   // Map: shs_rencana_id -> shs_resmi_id yang dipilih
   let pemetaan = $state<Record<number, number>>({});
   // Pencarian per baris
   let cari = $state<Record<number, string>>({});
+  // Hasil search per baris
+  let shsResults = $state<Record<number, ShsResmi[]>>({});
+  // Item yang sudah dipilih per baris
+  let dipilihMap = $state<Record<number, ShsResmi>>({});
+  let searchTimers = $state<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  function shsResmiFiltered(rencanaId: number, jenis: string) {
-    const q = (cari[rencanaId] || "").toLowerCase();
-    return shsResmiList
-      .filter(s => s.jenis === jenis)
-      .filter(s =>
-        q === "" ||
-        s.uraian.toLowerCase().includes(q) ||
-        s.kode.toLowerCase().includes(q)
-      )
-      .slice(0, 10);
+  async function searchShs(rencanaId: number, jenis: string, query: string) {
+    if (query.length < 2) { shsResults = { ...shsResults, [rencanaId]: [] }; return; }
+    if (searchTimers[rencanaId]) clearTimeout(searchTimers[rencanaId]);
+    searchTimers = { ...searchTimers, [rencanaId]: setTimeout(async () => {
+      try {
+        const results = await invoke<ShsResmi[]>("search_shs", {
+          tahunAnggaranId: tahunAktifId,
+          query,
+          sumber: "resmi",
+          limit: 10,
+        });
+        shsResults = { ...shsResults, [rencanaId]: results };
+      } catch(e) { console.error(e); }
+    }, 250)};
   }
 
   function formatRp(n: number) {
@@ -57,30 +66,32 @@
 
   onMount(async () => {
     try {
-      const [rencana, semua] = await Promise.all([
-        invoke<[number, string, string, string, number][]>("get_shs_rencana_dipakai", { dokumenId }),
-        invoke<any[]>("get_shs", {
-          tahunAnggaranId: await invoke<any[]>("get_tahun_anggaran")
-            .then(list => list.find((t: any) => t.aktif)?.id)
-        }),
-      ]);
+      const taList = await invoke<any[]>("get_tahun_anggaran");
+      const taAktif = taList.find((t: any) => t.aktif);
+      if (!taAktif) return;
+      tahunAktifId = taAktif.id;
 
+      const rencana = await invoke<[number, string, string, string, number][]>(
+        "get_shs_rencana_dipakai", { dokumenId }
+      );
       shsRencanaList = rencana.map(([id, jenis, kode, uraian, harga]) =>
         ({ id, jenis, kode, uraian, harga })
       );
 
-      shsResmiList = (semua as any[])
-        .filter(s => s.sumber === "resmi")
-        .map(s => ({
-          id: s.id, jenis: s.jenis, kode: s.kode,
-          uraian: s.uraian, spesifikasi: s.spesifikasi,
-          satuan: s.satuan, harga: s.harga,
-        }));
-
-      // Auto-match: cari SHS resmi dengan kode sama
+      // Auto-match: cari SHS resmi dengan kode sama via search
       for (const r of shsRencanaList) {
-        const match = shsResmiList.find(s => s.kode === r.kode && s.jenis === r.jenis);
-        if (match) pemetaan = { ...pemetaan, [r.id]: match.id };
+        try {
+          const matches = await invoke<ShsResmi[]>("search_shs", {
+            tahunAnggaranId: tahunAktifId,
+            query: r.kode,
+            sumber: "resmi",
+            limit: 1,
+          });
+          if (matches.length > 0 && matches[0].kode === r.kode) {
+            pemetaan = { ...pemetaan, [r.id]: matches[0].id };
+            dipilihMap = { ...dipilihMap, [r.id]: matches[0] };
+          }
+        } catch(e) {}
       }
     } catch(e) {
       toast.error(String(e));
@@ -95,12 +106,12 @@
       .map(([k, v]) => [Number(k), Number(v)]);
 
     if (entries.length === 0) {
-      error = "Belum ada pemetaan yang dipilih.";
+      toast.warning("Belum ada pemetaan yang dipilih.");
       return;
     }
 
     submitting = true;
-    error = "";
+
     try {
       const n = await invoke<number>("terapkan_pemetaan_shs", {
         dokumenId,
@@ -151,7 +162,7 @@
     </div>
 
     {#each shsRencanaList as r}
-      {@const dipilih = shsResmiList.find(s => s.id === pemetaan[r.id])}
+      {@const dipilih = pemetaan[r.id] ? (dipilihMap[r.id] || null) : null}
       <div style="display:grid; grid-template-columns:1fr 24px 1fr; gap:0; padding:16px 20px; border-bottom:1px solid var(--border); align-items:start;">
 
         <!-- Kolom kiri: SHS Rencana -->
@@ -178,7 +189,7 @@
                   {/if}
                 </div>
               </div>
-              <button class="btn btn-ghost" style="font-size:11px;" onclick={() => { pemetaan = { ...pemetaan, [r.id]: 0 }; cari = { ...cari, [r.id]: "" }; }}>Ganti</button>
+              <button class="btn btn-ghost" style="font-size:11px;" onclick={() => { pemetaan = { ...pemetaan, [r.id]: 0 }; dipilihMap = { ...dipilihMap }; delete dipilihMap[r.id]; cari = { ...cari, [r.id]: "" }; }}>Ganti</button>
             </div>
           {:else}
             <input
@@ -186,17 +197,18 @@
               style="margin-bottom:8px; font-size:12px;"
               placeholder="Cari SHS Resmi..."
               bind:value={cari[r.id]}
+              oninput={() => searchShs(r.id, r.jenis, cari[r.id] || "")}
             />
             <div style="border:1px solid var(--border); border-radius:6px; max-height:180px; overflow-y:auto;">
               {#if (cari[r.id] || "").length === 0}
                 <div style="padding:12px; font-size:12px; color:var(--text-3); text-align:center;">Ketik untuk mencari...</div>
-              {:else if shsResmiFiltered(r.id, r.jenis).length === 0}
+              {:else if (shsResults[r.id] || []).length === 0}
                 <div style="padding:12px; font-size:12px; color:var(--text-3); text-align:center;">Tidak ditemukan</div>
               {:else}
-                {#each shsResmiFiltered(r.id, r.jenis) as resmi}
+                {#each (shsResults[r.id] || []) as resmi}
                   <button
                     style="width:100%; text-align:left; padding:10px 12px; background:transparent; border:none; border-bottom:1px solid var(--border); cursor:pointer; display:flex; flex-direction:column; gap:2px;"
-                    onclick={() => { pemetaan = { ...pemetaan, [r.id]: resmi.id }; cari = { ...cari, [r.id]: "" }; }}
+                    onclick={() => { pemetaan = { ...pemetaan, [r.id]: resmi.id }; dipilihMap = { ...dipilihMap, [r.id]: resmi }; cari = { ...cari, [r.id]: "" }; shsResults = { ...shsResults, [r.id]: [] }; }}
                   >
                     <span style="font-size:11px; font-family:monospace; color:var(--text-3);">[{resmi.jenis}] {resmi.kode}</span>
                     <span style="font-size:12px; color:var(--text);">{resmi.uraian}</span>
