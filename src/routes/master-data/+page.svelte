@@ -44,6 +44,8 @@
   let rekeningList = $state<Rekening[]>([]);
   let showFormRekening = $state(false);
   let formRekening = $state({ kode: "", uraian: "" });
+  let editRekeningId = $state<number | null>(null);
+  let editRekeningUraian = $state("");
   let cariRekening = $state("");
   let submittingRekening = $state(false);
   let showImportRekening = $state(false);
@@ -112,6 +114,17 @@
       showImportRekening = false;
       await loadRekening();
     } catch(e) { importResult = "❌ " + String(e); }
+    finally { submittingRekening = false; }
+  }
+
+  async function simpanEditRekening(id: number) {
+    if (!editRekeningUraian.trim()) return;
+    submittingRekening = true;
+    try {
+      await invoke("update_rekening_uraian", { id, uraian: editRekeningUraian });
+      rekeningList = await invoke<Rekening[]>("get_semua_rekening");
+      editRekeningId = null;
+    } catch(e) { toast.error(String(e)); }
     finally { submittingRekening = false; }
   }
 
@@ -531,9 +544,25 @@
           {#each rekeningFiltered as rek, i}
             <tr style="border-bottom:{i < rekeningFiltered.length - 1 ? '1px solid var(--border)' : 'none'};">
               <td style="padding:10px 16px; font-family:monospace; color:var(--text-3); font-weight:600;">{rek.kode}</td>
-              <td style="padding:10px 16px; color:var(--text);">{rek.uraian}</td>
+              <td style="padding:10px 16px; color:var(--text);">
+                {#if editRekeningId === rek.id}
+                  <input class="input" style="font-size:12px;" bind:value={editRekeningUraian}
+                    onkeydown={(e) => { if (e.key === 'Enter') simpanEditRekening(rek.id); if (e.key === 'Escape') editRekeningId = null; }}
+                    autofocus />
+                {:else}
+                  {rek.uraian}
+                {/if}
+              </td>
               <td style="padding:10px 16px; text-align:right;">
-                <button onclick={() => hapusRekeningMaster(rek.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">✕</button>
+                <div style="display:flex; gap:4px; justify-content:flex-end;">
+                  {#if editRekeningId === rek.id}
+                    <button onclick={() => simpanEditRekening(rek.id)} disabled={submittingRekening} class="btn btn-primary" style="font-size:11px;">Simpan</button>
+                    <button onclick={() => editRekeningId = null} class="btn btn-ghost" style="font-size:11px;">Batal</button>
+                  {:else}
+                    <button onclick={() => { editRekeningId = rek.id; editRekeningUraian = rek.uraian; }} class="btn btn-ghost" style="font-size:11px;">Edit</button>
+                    <button onclick={() => hapusRekeningMaster(rek.id)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">✕</button>
+                  {/if}
+                </div>
               </td>
             </tr>
           {/each}

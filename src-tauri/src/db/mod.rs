@@ -129,6 +129,14 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // Migrasi 9: rekening di-populate otomatis saat import SHS
+    if versi_max < 9 {
+        conn.execute(
+            "INSERT OR IGNORE INTO migrasi (versi, deskripsi) VALUES (9, 'Rekening populate via import SHS')",
+            [],
+        )?;
+    }
+
     Ok(())
 }
 

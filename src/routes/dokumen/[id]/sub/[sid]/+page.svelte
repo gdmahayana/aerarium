@@ -257,7 +257,7 @@
 
 
 
-  function pilihShs(shs: ShsItem) {
+  async function pilihShs(shs: ShsItem) {
     fItem.uraian = shs.uraian;
     fItem.spesifikasi = shs.spesifikasi || "";
     fItem.satuan = shs.satuan;
@@ -268,7 +268,14 @@
     showShsResults = false;
     // Auto-suggest rekening
     if (shs.kode_rekening && !fRekKode) {
-      fRekKode = shs.kode_rekening.split(",")[0].trim();
+      const kodeRek = shs.kode_rekening.split(",")[0].trim();
+      fRekKode = kodeRek;
+      // Auto-isi uraian kalau sudah ada di DB
+      try {
+        const hasil = await invoke<[number, string, string][]>("cari_rekening", { query: kodeRek });
+        const exact = hasil.find(([, kode]) => kode === kodeRek);
+        if (exact) fRekUraian = exact[2];
+      } catch(e) {}
     }
   }
 

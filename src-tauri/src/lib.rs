@@ -43,9 +43,9 @@ fn export_kertas_kerja(dokumen_id: i64, output_path: String) -> Result<(), Strin
 }
 
 #[tauri::command]
-fn tambah_shs(tahun_anggaran_id: i64, jenis: String, sumber: String, kode: String, uraian: String, spesifikasi: Option<String>, satuan: String, harga: f64) -> Result<i64, String> {
+fn tambah_shs(tahun_anggaran_id: i64, jenis: String, sumber: String, kode: String, uraian: String, spesifikasi: Option<String>, satuan: String, harga: f64, kode_rekening: Option<String>) -> Result<i64, String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
-    tambah_shs_cmd(&conn, tahun_anggaran_id, &jenis, &sumber, &kode, &uraian, spesifikasi.as_deref(), &satuan, harga)
+    tambah_shs_cmd(&conn, tahun_anggaran_id, &jenis, &sumber, &kode, &uraian, spesifikasi.as_deref(), &satuan, harga, kode_rekening.as_deref())
 }
 
 #[tauri::command]
@@ -235,6 +235,16 @@ fn cari_rekening(query: String) -> Result<Vec<(i64, String, String)>, String> {
     .filter_map(|r| r.ok())
     .collect();
     Ok(rows)
+}
+
+#[tauri::command]
+fn update_rekening_uraian(id: i64, uraian: String) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE rekening SET uraian = ?1 WHERE id = ?2",
+        rusqlite::params![uraian, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -600,6 +610,7 @@ pub fn run() {
             get_semua_rekening,
             import_rekening_bulk,
             hapus_rekening,
+            update_rekening_uraian,
             cari_rekening,
             cari_atau_buat_rekening,
             get_master_program,

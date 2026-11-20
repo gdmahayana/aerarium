@@ -45,6 +45,7 @@
     spesifikasi: "",
     satuan: "",
     harga: "",
+    kode_rekening: "",
   });
 
   const jenisList = ["SSH", "SBU", "HSPK", "ASB"];
@@ -106,9 +107,10 @@
         spesifikasi: form.spesifikasi || null,
         satuan: form.satuan,
         harga: parseFloat(form.harga),
+        kodeRekening: form.kode_rekening || null,
       });
       shsList = await invoke<Shs[]>("get_shs", { tahunAnggaranId: tahunAktif.id });
-      form = { jenis: "SSH", kode: "", uraian: "", spesifikasi: "", satuan: "", harga: "" };
+      form = { jenis: "SSH", kode: "", uraian: "", spesifikasi: "", satuan: "", harga: "", kode_rekening: "" };
       showForm = false;
     } catch(e) { toast.error(String(e)); }
     finally { submitting = false; }
@@ -297,6 +299,10 @@
         <div style="flex:0 0 160px;">
           <div class="label" style="margin-bottom:4px;">Harga</div>
           <input class="input" type="number" bind:value={form.harga} placeholder="0" />
+        </div>
+        <div style="flex:1; min-width:200px;">
+          <div class="label" style="margin-bottom:4px;">Kode Rekening <span style="color:var(--text-3); font-weight:400;">(pisah koma jika lebih dari satu)</span></div>
+          <input class="input" bind:value={form.kode_rekening} placeholder="5.1.02.01.001.00001, 5.1.02.03.003.00001" />
         </div>
         <div style="display:flex; gap:8px;">
           <button onclick={tambah} disabled={submitting || !form.kode || !form.uraian || !form.satuan || !form.harga} class="btn btn-primary">

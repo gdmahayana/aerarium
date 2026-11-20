@@ -162,15 +162,79 @@ pub fn import_shs_from_excel(
         }
     }
 
+    // 4. Populate tabel rekening dari shs_rekening yang baru diinsert
+    populate_rekening_dari_shs(conn)?;
+
     Ok(result)
 }
 
-pub fn tambah_shs_manual(conn: &Connection, tahun_anggaran_id: i64, jenis: &str, sumber: &str, kode: &str, uraian: &str, spesifikasi: Option<&str>, satuan: &str, harga: f64) -> Result<i64, String> {
-    conn.execute(
-        "INSERT INTO shs (tahun_anggaran_id, jenis, sumber, kode, uraian, spesifikasi, satuan, harga) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        rusqlite::params![tahun_anggaran_id, jenis, sumber, kode, uraian, spesifikasi, satuan, harga],
+fn populate_rekening_dari_shs(conn: &rusqlite::Connection) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT kode_rekening FROM shs_rekening WHERE kode_rekening IS NOT NULL AND kode_rekening != ''"
     ).map_err(|e| e.to_string())?;
-    Ok(conn.last_insert_rowid())
+    let kode_list: Vec<String> = stmt.query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for kode in kode_list {
+        let segmen: Vec<&str> = kode.split('.').collect();
+        for i in 1..=segmen.len() {
+            let kode_parent = segmen[..i].join(".");
+            let level = i as i32;
+            // Uraian level 1-4 standar Permendagri 90/2019
+            let uraian = match (level, kode_parent.as_str()) {
+                (1, _) => "Belanja".to_string(),
+                (2, "5.1") => "Belanja Operasi".to_string(),
+                (2, "5.2") => "Belanja Modal".to_string(),
+                (2, "5.3") => "Belanja Tidak Terduga".to_string(),
+                (3, "5.1.01") => "Belanja Pegawai".to_string(),
+                (3, "5.1.02") => "Belanja Barang dan Jasa".to_string(),
+                (3, "5.1.03") => "Belanja Bunga".to_string(),
+                (3, "5.1.04") => "Belanja Subsidi".to_string(),
+                (3, "5.1.05") => "Belanja Hibah".to_string(),
+                (3, "5.1.06") => "Belanja Bantuan Sosial".to_string(),
+                (3, "5.2.01") => "Belanja Modal Tanah".to_string(),
+                (3, "5.2.02") => "Belanja Modal Peralatan dan Mesin".to_string(),
+                (3, "5.2.03") => "Belanja Modal Gedung dan Bangunan".to_string(),
+                (3, "5.2.04") => "Belanja Modal Jalan, Jaringan, dan Irigasi".to_string(),
+                (3, "5.2.05") => "Belanja Modal Aset Tetap Lainnya".to_string(),
+                (3, "5.3.01") => "Belanja Tidak Terduga".to_string(),
+                (2, k) => format!("Kelompok {}", k),
+                (3, k) => format!("Jenis {}", k),
+                (4, k) => format!("Objek {}", k),
+                (5, k) => format!("Rincian Objek {}", k),
+                (_, k) => k.to_string(),
+            };
+            conn.execute(
+                "INSERT OR IGNORE INTO rekening (kode, uraian, level) VALUES (?1, ?2, ?3)",
+                rusqlite::params![kode_parent, uraian, level],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+pub fn tambah_shs_manual(conn: &Connection, tahun_anggaran_id: i64, jenis: &str, sumber: &str, kode: &str, uraian: &str, spesifikasi: Option<&str>, satuan: &str, harga: f64, kode_rekening: Option<&str>) -> Result<i64, String> {
+    // Rekening utama = yang pertama
+    let kode_rek_utama = kode_rekening.map(|s| s.split(',').next().unwrap_or("").trim().to_string()).filter(|s| !s.is_empty());
+    conn.execute(
+        "INSERT INTO shs (tahun_anggaran_id, jenis, sumber, kode, uraian, spesifikasi, satuan, harga, kode_rekening) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        rusqlite::params![tahun_anggaran_id, jenis, sumber, kode, uraian, spesifikasi, satuan, harga, kode_rek_utama],
+    ).map_err(|e| e.to_string())?;
+    let shs_id = conn.last_insert_rowid();
+    // Insert semua kode rekening ke shs_rekening
+    if let Some(rek_str) = kode_rekening {
+        for kr in rek_str.split(',') {
+            let kr = kr.trim();
+            if kr.is_empty() { continue; }
+            conn.execute(
+                "INSERT INTO shs_rekening (shs_id, kode_rekening) VALUES (?1, ?2)",
+                rusqlite::params![shs_id, kr],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(shs_id)
 }
 
 pub fn hapus_shs(conn: &Connection, id: i64) -> Result<(), String> {
