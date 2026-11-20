@@ -335,6 +335,8 @@
             <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Uraian</th>
             <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Spesifikasi</th>
             <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Satuan</th>
+            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Kode Rekening</th>
+            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Kode Rekening</th>
             <th style="padding:10px 16px; text-align:right; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Harga</th>
             <th style="padding:10px 16px;"></th>
           </tr>
@@ -347,6 +349,22 @@
               <td style="padding:10px 16px; font-size:13px; color:var(--text);">{item.uraian}</td>
               <td style="padding:10px 16px; font-size:12px; color:var(--text-3);">{item.spesifikasi || '—'}</td>
               <td style="padding:10px 16px; font-size:12px; color:var(--text-2);">{item.satuan}</td>
+              <td style="padding:10px 16px; font-size:11px; color:var(--text-3); font-family:monospace;">
+                {#if item.kode_rekening}
+                  <span title={item.kode_rekening}>{item.kode_rekening.split(',')[0].trim()}</span>
+                  {#if item.kode_rekening.includes(',')}
+                    <span style="color:var(--accent); font-size:10px;"> +{item.kode_rekening.split(',').length - 1}</span>
+                  {/if}
+                {:else}—{/if}
+              </td>
+              <td style="padding:10px 16px; font-size:11px; color:var(--text-3); font-family:monospace;">
+                {#if item.kode_rekening}
+                  <span title={item.kode_rekening}>{item.kode_rekening.split(',')[0].trim()}</span>
+                  {#if item.kode_rekening.includes(',')}
+                    <span style="color:var(--accent); font-size:10px;"> +{item.kode_rekening.split(',').length - 1}</span>
+                  {/if}
+                {:else}—{/if}
+              </td>
               <td style="padding:10px 16px; font-size:13px; color:var(--text); text-align:right; font-variant-numeric:tabular-nums;">{formatRp(item.harga)}</td>
               <td style="padding:10px 16px;">
                 <button onclick={() => hapus(item.id, item.uraian)} class="btn btn-ghost" style="font-size:11px; color:var(--text-3);">Hapus</button>
