@@ -355,7 +355,7 @@
           koef4: fItem.koef4 ? parseFloat(fItem.koef4) : null,
           satuan4: fItem.satuan4 || null,
           harga: parseFloat(fItem.harga),
-          ppn: fItem.ppn ? 11 : null,
+          ppn: fItem.ppn ? 11 : 0,
           pagu_indikatif_id: selectedPaguId,
         }
       });
