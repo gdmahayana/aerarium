@@ -169,11 +169,104 @@ created_at: row.get(11)?,
 }
 
 fn ambil_data_json(conn: &Connection, dokumen_id: i64) -> Result<String, String> {
-let dokumen = get_by_id(conn, dokumen_id)?;
-let data = serde_json::json!({
-"dokumen": dokumen,
-});
-Ok(data.to_string())
+    let dokumen = get_by_id(conn, dokumen_id)?;
+
+    // Ambil sub kegiatan beserta total rincian per rekening
+    let mut stmt = conn.prepare(
+        "SELECT
+            dsk.id,
+            dsk.master_sub_kegiatan_id,
+            msk.kode,
+            msk.uraian,
+            dsk.pagu,
+            dsk.lokasi,
+            dsk.waktu_pelaksanaan,
+            dsk.keluaran,
+            dsk.target_keluaran,
+            COALESCE((
+                SELECT SUM(
+                    ri.volume
+                    * COALESCE(ri.koef2,1.0)
+                    * COALESCE(ri.koef3,1.0)
+                    * COALESCE(ri.koef4,1.0)
+                    * ri.harga
+                    * (1.0 + ri.ppn/100.0)
+                )
+                FROM rincian_rekening rrek
+                JOIN rincian_pengelompokan rp ON rp.rincian_rekening_id = rrek.id
+                JOIN rincian_keterangan rk ON rk.rincian_pengelompokan_id = rp.id
+                JOIN rincian_item ri ON ri.rincian_keterangan_id = rk.id
+                WHERE rrek.dokumen_sub_kegiatan_id = dsk.id
+            ), 0.0) AS total_rincian
+         FROM dokumen_sub_kegiatan dsk
+         JOIN master_sub_kegiatan msk ON msk.id = dsk.master_sub_kegiatan_id
+         WHERE dsk.dokumen_id = ?1
+         ORDER BY msk.kode"
+    ).map_err(|e| e.to_string())?;
+
+    let sub_kegiatan: Vec<serde_json::Value> = stmt.query_map(
+        rusqlite::params![dokumen_id], |row| {
+            Ok(serde_json::json!({
+                "dsk_id":               row.get::<_,i64>(0)?,
+                "master_sub_kegiatan_id": row.get::<_,i64>(1)?,
+                "kode":                 row.get::<_,String>(2)?,
+                "uraian":               row.get::<_,String>(3)?,
+                "pagu":                 row.get::<_,f64>(4)?,
+                "lokasi":               row.get::<_,Option<String>>(5)?,
+                "waktu_pelaksanaan":    row.get::<_,Option<String>>(6)?,
+                "keluaran":             row.get::<_,Option<String>>(7)?,
+                "target_keluaran":      row.get::<_,Option<String>>(8)?,
+                "total_rincian":        row.get::<_,f64>(9)?,
+            }))
+        }
+    ).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    // Ambil rekening per sub kegiatan beserta total
+    let mut stmt2 = conn.prepare(
+        "SELECT
+            dsk.id AS dsk_id,
+            r.kode,
+            r.uraian,
+            COALESCE(SUM(
+                ri.volume
+                * COALESCE(ri.koef2,1.0)
+                * COALESCE(ri.koef3,1.0)
+                * COALESCE(ri.koef4,1.0)
+                * ri.harga
+                * (1.0 + ri.ppn/100.0)
+            ), 0.0) AS total
+         FROM dokumen_sub_kegiatan dsk
+         JOIN rincian_rekening rrek ON rrek.dokumen_sub_kegiatan_id = dsk.id
+         JOIN rekening r ON r.id = rrek.rekening_id
+         LEFT JOIN rincian_pengelompokan rp ON rp.rincian_rekening_id = rrek.id
+         LEFT JOIN rincian_keterangan rk ON rk.rincian_pengelompokan_id = rp.id
+         LEFT JOIN rincian_item ri ON ri.rincian_keterangan_id = rk.id
+         WHERE dsk.dokumen_id = ?1
+         GROUP BY dsk.id, r.kode, r.uraian
+         ORDER BY dsk.id, r.kode"
+    ).map_err(|e| e.to_string())?;
+
+    let rekening_detail: Vec<serde_json::Value> = stmt2.query_map(
+        rusqlite::params![dokumen_id], |row| {
+            Ok(serde_json::json!({
+                "dsk_id":  row.get::<_,i64>(0)?,
+                "kode":    row.get::<_,String>(1)?,
+                "uraian":  row.get::<_,String>(2)?,
+                "total":   row.get::<_,f64>(3)?,
+            }))
+        }
+    ).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    let data = serde_json::json!({
+        "dokumen":          dokumen,
+        "sub_kegiatan":     sub_kegiatan,
+        "rekening_detail":  rekening_detail,
+    });
+    Ok(data.to_string())
 }
 
 pub fn jadikan_rka(conn: &Connection, kertas_kerja_id: i64) -> Result<i64, String> {
@@ -681,4 +774,157 @@ pub fn buat_pergeseran(conn: &Connection, dokumen_id: i64) -> Result<i64, String
     ).map_err(|e| e.to_string())?;
 
     Ok(baru_id)
+}
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct SubKegiatanDiff {
+    pub master_sub_kegiatan_id: i64,
+    pub kode: String,
+    pub uraian: String,
+    pub pagu_a: Option<f64>,
+    pub pagu_b: Option<f64>,
+    pub total_rincian_a: Option<f64>,
+    pub total_rincian_b: Option<f64>,
+    pub selisih_pagu: f64,
+    pub selisih_rincian: f64,
+    pub status: String, // "tambah" | "hapus" | "ubah" | "sama"
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct PerbandinganResult {
+    pub dokumen_a: Dokumen,
+    pub dokumen_b: Dokumen,
+    pub sub_kegiatan: Vec<SubKegiatanDiff>,
+    pub total_pagu_a: f64,
+    pub total_pagu_b: f64,
+    pub total_rincian_a: f64,
+    pub total_rincian_b: f64,
+}
+
+pub fn get_perbandingan_dokumen(
+    conn: &Connection,
+    id_a: i64,
+    id_b: i64,
+) -> Result<PerbandinganResult, String> {
+    let dok_a = get_by_id(conn, id_a)?;
+    let dok_b = get_by_id(conn, id_b)?;
+
+    // Ambil sub kegiatan + total rincian untuk satu dokumen
+    let ambil_sub = |dok_id: i64| -> Result<Vec<(i64, String, String, f64, f64)>, String> {
+        let mut stmt = conn.prepare(
+            "SELECT
+                dsk.master_sub_kegiatan_id,
+                msk.kode,
+                msk.uraian,
+                dsk.pagu,
+                COALESCE((
+                    SELECT SUM(
+                        ri.volume
+                        * COALESCE(ri.koef2,1.0)
+                        * COALESCE(ri.koef3,1.0)
+                        * COALESCE(ri.koef4,1.0)
+                        * ri.harga
+                        * (1.0 + ri.ppn/100.0)
+                    )
+                    FROM rincian_rekening rrek
+                    JOIN rincian_pengelompokan rp ON rp.rincian_rekening_id = rrek.id
+                    JOIN rincian_keterangan rk ON rk.rincian_pengelompokan_id = rp.id
+                    JOIN rincian_item ri ON ri.rincian_keterangan_id = rk.id
+                    WHERE rrek.dokumen_sub_kegiatan_id = dsk.id
+                ), 0.0)
+             FROM dokumen_sub_kegiatan dsk
+             JOIN master_sub_kegiatan msk ON msk.id = dsk.master_sub_kegiatan_id
+             WHERE dsk.dokumen_id = ?1
+             ORDER BY msk.kode"
+        ).map_err(|e| e.to_string())?;
+
+        let result: Vec<(i64, String, String, f64, f64)> = stmt.query_map(rusqlite::params![dok_id], |row| {
+            Ok((
+                row.get::<_,i64>(0)?,
+                row.get::<_,String>(1)?,
+                row.get::<_,String>(2)?,
+                row.get::<_,f64>(3)?,
+                row.get::<_,f64>(4)?,
+            ))
+        }).map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+        Ok(result)
+    };
+
+    let list_a = ambil_sub(id_a)?;
+    let list_b = ambil_sub(id_b)?;
+
+    // Index by master_sub_kegiatan_id
+    use std::collections::HashMap;
+    let map_a: HashMap<i64, (String, String, f64, f64)> = list_a.iter()
+        .map(|(msk_id, kode, uraian, pagu, total)| (*msk_id, (kode.clone(), uraian.clone(), *pagu, *total)))
+        .collect();
+    let map_b: HashMap<i64, (String, String, f64, f64)> = list_b.iter()
+        .map(|(msk_id, kode, uraian, pagu, total)| (*msk_id, (kode.clone(), uraian.clone(), *pagu, *total)))
+        .collect();
+
+    // Gabungkan semua key
+    let mut all_keys: Vec<i64> = map_a.keys().chain(map_b.keys()).cloned().collect();
+    all_keys.sort();
+    all_keys.dedup();
+
+    let mut diffs: Vec<SubKegiatanDiff> = Vec::new();
+    let mut total_pagu_a = 0.0f64;
+    let mut total_pagu_b = 0.0f64;
+    let mut total_rincian_a = 0.0f64;
+    let mut total_rincian_b = 0.0f64;
+
+    // Gunakan kode+uraian dari list_a dulu, fallback ke list_b
+    // Sort by kode untuk tampilan
+    let mut key_kode: Vec<(i64, String, String)> = all_keys.iter().map(|msk_id| {
+        if let Some((kode, uraian, _, _)) = map_a.get(msk_id) {
+            (*msk_id, kode.clone(), uraian.clone())
+        } else if let Some((kode, uraian, _, _)) = map_b.get(msk_id) {
+            (*msk_id, kode.clone(), uraian.clone())
+        } else {
+            (*msk_id, String::new(), String::new())
+        }
+    }).collect();
+    key_kode.sort_by(|a, b| a.1.cmp(&b.1));
+
+    for (msk_id, kode, uraian) in key_kode {
+        let (pagu_a, total_a) = map_a.get(&msk_id).map(|v| (Some(v.2), Some(v.3))).unwrap_or((None, None));
+        let (pagu_b, total_b) = map_b.get(&msk_id).map(|v| (Some(v.2), Some(v.3))).unwrap_or((None, None));
+
+        total_pagu_a    += pagu_a.unwrap_or(0.0);
+        total_pagu_b    += pagu_b.unwrap_or(0.0);
+        total_rincian_a += total_a.unwrap_or(0.0);
+        total_rincian_b += total_b.unwrap_or(0.0);
+
+        let selisih_pagu    = pagu_b.unwrap_or(0.0) - pagu_a.unwrap_or(0.0);
+        let selisih_rincian = total_b.unwrap_or(0.0) - total_a.unwrap_or(0.0);
+
+        let status = match (pagu_a, pagu_b) {
+            (None, Some(_)) => "tambah",
+            (Some(_), None) => "hapus",
+            (Some(a), Some(b)) if (a - b).abs() < 0.01 => "sama",
+            _ => "ubah",
+        }.to_string();
+
+        diffs.push(SubKegiatanDiff {
+            master_sub_kegiatan_id: msk_id,
+            kode, uraian,
+            pagu_a, pagu_b,
+            total_rincian_a: total_a,
+            total_rincian_b: total_b,
+            selisih_pagu,
+            selisih_rincian,
+            status,
+        });
+    }
+
+    Ok(PerbandinganResult {
+        dokumen_a: dok_a,
+        dokumen_b: dok_b,
+        sub_kegiatan: diffs,
+        total_pagu_a,
+        total_pagu_b,
+        total_rincian_a,
+        total_rincian_b,
+    })
 }

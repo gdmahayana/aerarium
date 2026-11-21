@@ -21,7 +21,7 @@ use models::rincian::{
     TambahRincianItemInput,
 };
 use commands::tahun_anggaran as ta;
-use commands::dokumen as dok;
+use commands::dokumen::{self as dok, PerbandinganResult};
 use models::tahun_anggaran::TambahTahunAnggaranInput;
 use models::dokumen::BuatDokumenInput;
 
@@ -601,6 +601,12 @@ fn hapus_kode_barang(id: i64) -> Result<(), String> {
 }
 
 
+#[tauri::command]
+fn get_perbandingan_dokumen(id_a: i64, id_b: i64) -> Result<PerbandinganResult, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    dok::get_perbandingan_dokumen(&conn, id_a, id_b)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     db::init_db().expect("Gagal inisialisasi database");
@@ -635,6 +641,7 @@ pub fn run() {
             jadikan_dppa,
             buat_pergeseran,
             get_dashboard_summary,
+            get_perbandingan_dokumen,
             get_semua_rekening,
             import_rekening_bulk,
             hapus_rekening,
