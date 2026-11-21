@@ -3,7 +3,7 @@ mod commands;
 mod models;
 
 use commands::import_ssh::{import_shs_from_excel, get_shs as get_shs_cmd, search_shs as search_shs_cmd, tambah_shs_manual as tambah_shs_cmd, hapus_shs as hapus_shs_cmd, get_kode_barang as get_kode_barang_cmd, get_shs_rekening as get_shs_rekening_cmd, ImportResult};
-use commands::export::{export_shs_rencana as export_shs_rencana_cmd, export_kertas_kerja as export_kertas_kerja_cmd};
+use commands::export::{export_shs_rencana as export_shs_rencana_cmd, export_kertas_kerja as export_kertas_kerja_cmd, export_shs_resmi as export_shs_resmi_cmd};
 use commands::rincian as rin;
 use commands::pagu_indikatif as pi;
 use commands::kegiatan as keg;
@@ -40,6 +40,12 @@ fn export_shs_rencana(tahun_anggaran_id: i64, output_path: String) -> Result<usi
 fn export_kertas_kerja(dokumen_id: i64, output_path: String) -> Result<(), String> {
     let conn = db::init_db().map_err(|e| e.to_string())?;
     export_kertas_kerja_cmd(&conn, dokumen_id, &output_path)
+}
+
+#[tauri::command]
+fn export_shs_resmi(tahun_anggaran_id: i64, output_path: String) -> Result<usize, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    export_shs_resmi_cmd(&conn, tahun_anggaran_id, &output_path)
 }
 
 #[tauri::command]
@@ -576,6 +582,25 @@ fn set_pagu_indikatif_item(item_id: i64, pagu_indikatif_id: Option<i64>) -> Resu
     rin::set_pagu_indikatif_item(&conn, item_id, pagu_indikatif_id)
 }
 
+#[tauri::command]
+fn tambah_kode_barang(kode: String, uraian: String) -> Result<i64, String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO kode_barang (kode, uraian) VALUES (?1, ?2) ON CONFLICT(kode) DO UPDATE SET uraian = excluded.uraian",
+        rusqlite::params![kode, uraian],
+    ).map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn hapus_kode_barang(id: i64) -> Result<(), String> {
+    let conn = db::init_db().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM kode_barang WHERE id = ?1", rusqlite::params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     db::init_db().expect("Gagal inisialisasi database");
@@ -589,9 +614,12 @@ pub fn run() {
             get_shs_rekening,
             search_shs,
             get_kode_barang,
+            tambah_kode_barang,
+            hapus_kode_barang,
             get_shs,
             export_shs_rencana,
             export_kertas_kerja,
+            export_shs_resmi,
             tambah_shs,
             hapus_shs,
             get_tahun_anggaran,

@@ -141,6 +141,23 @@
     } catch(e) { toast.error(String(e)); }
   }
 
+  async function exportSHSResmi() {
+    if (!tahunAktif) return;
+    try {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const filePath = await save({
+        filters: [{ name: "Excel", extensions: ["xlsx"] }],
+        defaultPath: "SHS_Resmi_" + tahunAktif.tahun + ".xlsx",
+      });
+      if (!filePath) return;
+      const count = await invoke<number>("export_shs_resmi", {
+        tahunAnggaranId: tahunAktif.id,
+        outputPath: filePath,
+      });
+      toast.success("Berhasil export " + count + " item SHS Resmi ke Excel");
+    } catch(e) { toast.error(String(e)); }
+  }
+
   async function importExcel() {
     if (!tahunAktif) return;
     importing = true;
@@ -259,6 +276,11 @@
       </button>
     {/if}
     {#if tabAktif === 'resmi'}
+      {#if totalResmi > 0}
+        <button onclick={exportSHSResmi} class="btn btn-ghost" style="font-size:12px;">
+          Export Excel →
+        </button>
+      {/if}
       <button onclick={() => showModalImport = true} disabled={importing} class="btn btn-ghost" style="font-size:12px;">
         Import Excel
       </button>
@@ -342,7 +364,6 @@
             <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Spesifikasi</th>
             <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Satuan</th>
             <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Kode Rekening</th>
-            <th style="padding:10px 16px; text-align:left; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Kode Rekening</th>
             <th style="padding:10px 16px; text-align:right; font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase;">Harga</th>
             <th style="padding:10px 16px;"></th>
           </tr>
@@ -354,22 +375,14 @@
               <td style="padding:10px 16px; font-size:12px; color:var(--text-3); font-family:monospace;">{item.kode}</td>
               <td style="padding:10px 16px; font-size:13px; color:var(--text);">{item.uraian}</td>
               <td style="padding:10px 16px; font-size:12px; color:var(--text-3);">{item.spesifikasi || '—'}</td>
-              <td style="padding:10px 16px; font-size:12px; color:var(--text-2);">{item.satuan}</td>
-              <td style="padding:10px 16px; font-size:11px; color:var(--text-3); font-family:monospace;">
+              <td style="padding:8px 16px; font-size:11px; color:var(--text-3);">
                 {#if item.kode_rekening}
-                  <span title={item.kode_rekening}>{item.kode_rekening.split(',')[0].trim()}</span>
-                  {#if item.kode_rekening.includes(',')}
-                    <span style="color:var(--accent); font-size:10px;"> +{item.kode_rekening.split(',').length - 1}</span>
-                  {/if}
-                {:else}—{/if}
-              </td>
-              <td style="padding:10px 16px; font-size:11px; color:var(--text-3); font-family:monospace;">
-                {#if item.kode_rekening}
-                  <span title={item.kode_rekening}>{item.kode_rekening.split(',')[0].trim()}</span>
-                  {#if item.kode_rekening.includes(',')}
-                    <span style="color:var(--accent); font-size:10px;"> +{item.kode_rekening.split(',').length - 1}</span>
-                  {/if}
-                {:else}—{/if}
+                  <div style="display:flex; flex-direction:column; gap:3px;">
+                    {#each item.kode_rekening.split(',').map(s => s.trim()).filter(Boolean) as rek}
+                      <span style="font-family:monospace; font-size:10px; padding:1px 6px; border-radius:3px; background:var(--surface-2); color:var(--text-2); white-space:nowrap;">{rek}</span>
+                    {/each}
+                  </div>
+                {:else}<span style="color:var(--text-3)">—</span>{/if}
               </td>
               <td style="padding:10px 16px; font-size:13px; color:var(--text); text-align:right; font-variant-numeric:tabular-nums;">{formatRp(item.harga)}</td>
               <td style="padding:10px 16px;">

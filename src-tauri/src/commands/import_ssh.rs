@@ -245,7 +245,7 @@ pub fn hapus_shs(conn: &Connection, id: i64) -> Result<(), String> {
 
 pub fn get_shs(conn: &Connection, tahun_anggaran_id: i64) -> Result<Vec<ShsItem>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, jenis, sumber, kode, kode_kelompok, uraian_kelompok, id_sipd, uraian, spesifikasi, satuan, harga, kode_rekening FROM shs WHERE tahun_anggaran_id = ?1 ORDER BY jenis, kode")
+        .prepare("SELECT s.id, s.jenis, s.sumber, s.kode, s.kode_kelompok, s.uraian_kelompok, s.id_sipd, s.uraian, s.spesifikasi, s.satuan, s.harga, COALESCE((SELECT GROUP_CONCAT(sr.kode_rekening, ', ') FROM shs_rekening sr WHERE sr.shs_id = s.id), s.kode_rekening) FROM shs s WHERE s.tahun_anggaran_id = ?1 ORDER BY s.jenis, s.kode")
         .map_err(|e| e.to_string())?;
 
     let result = stmt

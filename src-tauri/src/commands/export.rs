@@ -409,3 +409,58 @@ pub fn export_kertas_kerja(
     workbook.save(output_path).map_err(|e| e.to_string())?;
     Ok(())
 }
+pub fn export_shs_resmi(conn: &Connection, tahun_anggaran_id: i64, output_path: &str) -> Result<usize, String> {
+    let mut stmt = conn.prepare(
+        "SELECT s.kode_kelompok, s.uraian_kelompok, COALESCE(s.id_sipd, ''), s.kode, s.uraian, COALESCE(s.spesifikasi, ''), s.satuan, s.harga, COALESCE((SELECT GROUP_CONCAT(sr.kode_rekening, ', ') FROM shs_rekening sr WHERE sr.shs_id = s.id), s.kode_rekening, '') FROM shs s WHERE s.tahun_anggaran_id = ?1 AND s.sumber = 'resmi' ORDER BY s.kode_kelompok, s.kode"
+    ).map_err(|e| e.to_string())?;
+
+    let rows: Vec<(String, String, String, String, String, String, String, f64, String)> = stmt
+        .query_map(rusqlite::params![tahun_anggaran_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let count = rows.len();
+    let mut workbook = Workbook::new();
+    let sheet = workbook.add_worksheet();
+
+    let fmt_header = Format::new()
+        .set_bold()
+        .set_background_color(Color::RGB(0x1e3a5f))
+        .set_font_color(Color::White)
+        .set_border(FormatBorder::Thin);
+    let fmt_number = Format::new().set_num_format("#,##0");
+    let fmt_border = Format::new().set_border(FormatBorder::Thin);
+
+    let headers = ["kode_kelompok", "uraian_kelompok", "id_sipd", "kode", "uraian", "spesifikasi", "satuan", "harga", "kode_rekening"];
+    for (i, h) in headers.iter().enumerate() {
+        sheet.write_with_format(0, i as u16, *h, &fmt_header).map_err(|e| e.to_string())?;
+    }
+    sheet.set_column_width(0, 16).map_err(|e| e.to_string())?;
+    sheet.set_column_width(1, 30).map_err(|e| e.to_string())?;
+    sheet.set_column_width(2, 14).map_err(|e| e.to_string())?;
+    sheet.set_column_width(3, 28).map_err(|e| e.to_string())?;
+    sheet.set_column_width(4, 40).map_err(|e| e.to_string())?;
+    sheet.set_column_width(5, 40).map_err(|e| e.to_string())?;
+    sheet.set_column_width(6, 14).map_err(|e| e.to_string())?;
+    sheet.set_column_width(7, 18).map_err(|e| e.to_string())?;
+    sheet.set_column_width(8, 30).map_err(|e| e.to_string())?;
+
+    for (i, row) in rows.iter().enumerate() {
+        let r = (i + 1) as u32;
+        sheet.write_with_format(r, 0, row.0.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 1, row.1.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 2, row.2.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 3, row.3.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 4, row.4.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 5, row.5.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 6, row.6.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 7, row.7, &fmt_number).map_err(|e| e.to_string())?;
+        sheet.write_with_format(r, 8, row.8.as_str(), &fmt_border).map_err(|e| e.to_string())?;
+    }
+
+    workbook.save(output_path).map_err(|e| e.to_string())?;
+    Ok(count)
+}
